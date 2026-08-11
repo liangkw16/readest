@@ -81,12 +81,10 @@ const renderItem = (overrides: Partial<React.ComponentProps<typeof BookshelfItem
     coverFit: 'crop' as const,
     isSelectMode: false,
     itemSelected: false,
-    transferProgress: null,
     setLoading: vi.fn(),
     toggleSelection: vi.fn(),
     handleGroupBooks: vi.fn(),
     handleBookDownload: vi.fn(async () => true),
-    handleBookUpload: vi.fn(async () => true),
     handleBookDelete: vi.fn(async () => true),
     handleSetSelectMode: vi.fn(),
     handleShowDetailsBook: vi.fn(),
@@ -119,8 +117,7 @@ describe('library context menu on Linux desktop (issue #5360)', () => {
 
     openContextMenu();
 
-    // The downloaded, never-uploaded, statusless test book resolves to this
-    // ordered id list via getBookContextMenuItemIds.
+    // The statusless test book resolves to this local-action order.
     const labels = [
       'Select Book',
       'Group Books',
@@ -129,8 +126,6 @@ describe('library context menu on Linux desktop (issue #5360)', () => {
       'Show Book Details',
       'Reveal in Folder',
       'Search on Goodreads',
-      'Upload Book',
-      'Share Book',
       'Delete',
     ];
     const menuItems = await screen.findAllByRole('menuitem');

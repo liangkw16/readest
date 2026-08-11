@@ -12,9 +12,6 @@ const mocks = vi.hoisted(() => ({
     recomputeBookTotals: vi.fn(),
   },
   open: vi.fn(),
-  pushStats: vi.fn(),
-  syncEnabled: false,
-  accessToken: null as string | null,
 }));
 
 vi.mock('@/services/environment', () => ({
@@ -23,12 +20,6 @@ vi.mock('@/services/environment', () => ({
 vi.mock('@/services/statistics/statisticsDb', () => ({
   StatisticsDb: { open: mocks.open },
 }));
-vi.mock('@/services/statistics/statsSync', () => ({ pushStats: mocks.pushStats }));
-vi.mock('@/services/sync/syncCategories', () => ({
-  isSyncCategoryEnabled: () => mocks.syncEnabled,
-}));
-vi.mock('@/libs/sync', () => ({ SyncClient: class {} }));
-vi.mock('@/utils/access', () => ({ getAccessToken: async () => mocks.accessToken }));
 vi.mock('@/store/readerProgressStore', () => ({ getBookProgress: () => mocks.progress }));
 vi.mock('@/store/bookDataStore', () => ({
   useBookDataStore: {
@@ -125,12 +116,9 @@ describe('TtsStatsRecorder', () => {
     mocks.db.upsertBook.mockResolvedValue(1);
     mocks.db.insertPageEvent.mockResolvedValue(undefined);
     mocks.db.recomputeBookTotals.mockResolvedValue(undefined);
-    mocks.pushStats.mockResolvedValue(undefined);
     mocks.book = { hash: 'md5-1', title: 'Book', author: 'Author' };
     mocks.config = { progress: [1, 200], updatedAt: 0 } as BookConfig;
     mocks.progress = null;
-    mocks.syncEnabled = false;
-    mocks.accessToken = null;
   });
 
   afterEach(() => {
@@ -271,31 +259,5 @@ describe('TtsStatsRecorder', () => {
 
     expect(mocks.db.insertPageEvent).not.toHaveBeenCalled();
     warn.mockRestore();
-  });
-
-  it('pushes stats on stop when stats sync is enabled and the user is signed in', async () => {
-    setViewPage(9, 200);
-    mocks.syncEnabled = true;
-    mocks.accessToken = 'token';
-    const recorder = new TtsStatsRecorder(makeSession({ isViewAttached: true }));
-
-    recorder.onPlaybackState('playing');
-    await vi.advanceTimersByTimeAsync(60_000);
-    await recorder.stop();
-
-    expect(mocks.pushStats).toHaveBeenCalled();
-  });
-
-  it('does not push stats when the user is signed out', async () => {
-    setViewPage(9, 200);
-    mocks.syncEnabled = true;
-    mocks.accessToken = null;
-    const recorder = new TtsStatsRecorder(makeSession({ isViewAttached: true }));
-
-    recorder.onPlaybackState('playing');
-    await vi.advanceTimersByTimeAsync(60_000);
-    await recorder.stop();
-
-    expect(mocks.pushStats).not.toHaveBeenCalled();
   });
 });

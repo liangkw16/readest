@@ -1,20 +1,14 @@
-import { Book } from '@/types/book';
-
 import libraryEn from '@/data/demo/library.en.json';
 import libraryZh from '@/data/demo/library.zh.json';
 
-export const demoLibraries = {
+interface DemoLibrary {
+  library: string[];
+}
+
+// Empty by default: a self-hosted/local build must not silently fetch sample
+// books from an official CDN. The hook remains as a compatibility seam for a
+// deployment that replaces these bundled manifests with its own assets.
+export const demoLibraries: Record<'en' | 'zh', DemoLibrary> = {
   en: libraryEn,
   zh: libraryZh,
 };
-
-const demoBookUrls = new Set([...libraryEn.library, ...libraryZh.library]);
-
-/**
- * Demo books are the sample shelf an anonymous web visitor gets (issue #5049).
- * They are imported as ordinary url-backed rows so the library isn't empty, but
- * they are not the user's content: they must never be pushed to the cloud, and
- * a cloud row must never be merged back over one. Identifying them by url also
- * covers rows imported before this rule existed.
- */
-export const isDemoBook = (book: Book): boolean => !!book.url && demoBookUrls.has(book.url);

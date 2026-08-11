@@ -53,7 +53,6 @@ vi.mock('next/image', () => ({
 }));
 
 vi.mock('@/components/SupportLinks', () => ({ default: () => null }));
-vi.mock('@/components/LegalLinks', () => ({ default: () => null }));
 vi.mock('@/components/Link', () => ({
   default: ({ children }: { children: ReactNode }) => <span>{children}</span>,
 }));

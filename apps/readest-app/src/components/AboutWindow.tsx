@@ -9,7 +9,6 @@ import { getAppVersion } from '@/utils/version';
 import { writeTextToClipboard } from '@/utils/clipboard';
 import { eventDispatcher } from '@/utils/event';
 import SupportLinks from './SupportLinks';
-import LegalLinks from './LegalLinks';
 import Dialog from './Dialog';
 import Link from './Link';
 
@@ -168,13 +167,11 @@ export const AboutWindow = () => {
             </p>
             <p className='text-neutral-content text-xs'>
               Source code is available at{' '}
-              <Link href='https://github.com/readest/readest' className='text-blue-500 underline'>
+              <Link href='https://github.com/liangkw16/readest' className='text-blue-500 underline'>
                 GitHub
               </Link>
               .
             </p>
-
-            <LegalLinks />
           </div>
           <SupportLinks />
         </div>

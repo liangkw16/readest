@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import type { AppService, BaseDir } from '@/types/system';
 import type { GlossIndexData } from '@/services/wordlens/types';
 import type {
@@ -83,6 +83,13 @@ const makePack = (overrides: Partial<WordLensPack>, sha: string): WordLensPack =
 describe('glossPacks', () => {
   beforeEach(() => {
     vi.resetModules();
+    window.__READEST_RUNTIME_CONFIG = {
+      wordLensBaseUrl: 'https://wordlens.example.test/assets/',
+    };
+  });
+
+  afterEach(() => {
+    delete window.__READEST_RUNTIME_CONFIG;
   });
 
   describe('downloadViaTempFile', () => {
@@ -171,6 +178,24 @@ describe('glossPacks', () => {
   });
 
   describe('ensurePack', () => {
+    it('reuses a local pack without a configured base URL or any network access', async () => {
+      delete window.__READEST_RUNTIME_CONFIG;
+      const { ensurePack } = await importGlossPacks();
+      const { appService } = createFakeAppService();
+      const sha = await sha256Hex(packBytes());
+      const pack = makePack({}, sha);
+      await appService.writeFile('wordlens/en-zh.json', 'Data', packBytes());
+      await appService.writeFile('wordlens/en-zh.json.sha', 'Data', sha);
+      const download: BytesDownloader = vi.fn(async () => {
+        throw new Error('network must stay disabled without an explicit WordLens base URL');
+      });
+
+      const path = await ensurePack(appService, pack, { download });
+
+      expect(path).toBe('wordlens/en-zh.json');
+      expect(download).not.toHaveBeenCalled();
+    });
+
     it('downloads when absent, verifies sha, writes file + sidecar, returns the path', async () => {
       const { ensurePack } = await importGlossPacks();
       const { appService, store } = createFakeAppService();
@@ -182,6 +207,10 @@ describe('glossPacks', () => {
 
       expect(path).toBe('wordlens/en-zh.json');
       expect(download).toHaveBeenCalledTimes(1);
+      expect(download).toHaveBeenCalledWith(
+        `https://wordlens.example.test/assets/en-zh.json?v=${sha.slice(0, 8)}`,
+        undefined,
+      );
       expect(await appService.exists('wordlens/en-zh.json', 'Data')).toBe(true);
       expect(await appService.readFile('wordlens/en-zh.json.sha', 'Data', 'text')).toBe(sha);
       expect(store.size).toBe(2);
@@ -436,6 +465,41 @@ describe('glossPacks', () => {
   });
 
   describe('fetchManifest', () => {
+    it('reads only the local cache and never downloads when no base URL is configured', async () => {
+      delete window.__READEST_RUNTIME_CONFIG;
+      const { fetchManifest } = await importGlossPacks();
+      const { appService } = createFakeAppService();
+      const persisted: WordLensManifest = {
+        schemaVersion: 1,
+        packs: [makePack({}, 'persisted-sha')],
+      };
+      await appService.writeFile('wordlens/manifest.json', 'Data', JSON.stringify(persisted));
+      const download: BytesDownloader = vi.fn(async () => {
+        throw new Error('network must stay disabled without an explicit WordLens base URL');
+      });
+
+      const result = await fetchManifest(appService, { download });
+
+      expect(result).toEqual(persisted);
+      expect(download).not.toHaveBeenCalled();
+    });
+
+    it('downloads from the explicitly configured base URL', async () => {
+      const { fetchManifest } = await importGlossPacks();
+      const { appService } = createFakeAppService();
+      const manifest: WordLensManifest = { schemaVersion: 1, packs: [] };
+      const manifestBytes = new TextEncoder().encode(JSON.stringify(manifest))
+        .buffer as ArrayBuffer;
+      const download: BytesDownloader = vi.fn(async () => manifestBytes);
+
+      await fetchManifest(appService, { download });
+
+      expect(download).toHaveBeenCalledWith(
+        'https://wordlens.example.test/assets/manifest.json',
+        undefined,
+      );
+    });
+
     it('downloads, persists to Data, then serves the persisted copy when offline', async () => {
       const { fetchManifest } = await importGlossPacks();
       const { appService } = createFakeAppService();

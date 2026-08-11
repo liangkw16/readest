@@ -18,10 +18,6 @@ vi.mock('@/context/EnvContext', () => ({
   useEnv: () => ({ envConfig: { getAppService: async () => appSvc }, appService: appSvc }),
 }));
 
-vi.mock('@/context/AuthContext', () => ({
-  useAuth: () => ({ user: { id: 'u1' } }),
-}));
-
 vi.mock('@/store/themeStore', () => ({
   useThemeStore: () => ({ safeAreaInsets: { top: 0, bottom: 0, left: 0, right: 0 } }),
 }));
@@ -149,16 +145,13 @@ describe('BookDetailModal purge-on-delete routing', () => {
           isOpen
           onClose={vi.fn()}
           handleBookDelete={handlers.handleBookDelete}
-          handleBookDeleteCloudBackup={vi.fn()}
-          handleBookDeleteLocalCopy={vi.fn()}
           handleBookPurge={handlers.handleBookPurge}
         />
       </DropdownProvider>,
     );
 
   const openStandardDelete = (container: HTMLElement) => {
-    fireEvent.click(container.querySelector('button[aria-label="Delete Book Options"]')!);
-    fireEvent.click(screen.getByText('Remove from Cloud & Device'));
+    fireEvent.click(container.querySelector('button[title="Delete Book"]')!);
   };
 
   it('shows the purge toggle on the standard delete and routes to purge when enabled', () => {

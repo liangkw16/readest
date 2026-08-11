@@ -45,7 +45,6 @@ import {
   resolveEffectivePrimarySort,
   resolveEffectiveSecondarySort,
   resolveCurrentShelfBooks,
-  selectDownloadableBooks,
   selectRecentShelfBooks,
   withReadingStatus,
   withTimeRemainingLast,
@@ -63,8 +62,6 @@ import Spinner from '@/components/Spinner';
 import ModalPortal from '@/components/ModalPortal';
 import BookshelfItem, { generateBookshelfItems } from './BookshelfItem';
 import SelectModeActions from './SelectModeActions';
-import ShareBookDialog from './ShareBookDialog';
-import { useAuth } from '@/context/AuthContext';
 import GroupingModal from './GroupingModal';
 import SetStatusAlert from './SetStatusAlert';
 import RecentShelf, { RECENT_SHELF_BOOK_COUNT } from './RecentShelf';
@@ -83,18 +80,12 @@ interface BookshelfProps {
   isSelectNone: boolean;
   onScrollerRef: (el: HTMLDivElement | null) => void;
   handleImportBooks: (anchor: HTMLElement) => void;
-  handleBookDownload: (
-    book: Book,
-    options?: { redownload?: boolean; queued?: boolean; silent?: boolean },
-  ) => Promise<boolean>;
-  handleBookUpload: (book: Book, syncBooks?: boolean) => Promise<boolean>;
+  handleBookDownload: (book: Book) => Promise<boolean>;
   handleBookDelete: (book: Book, syncBooks?: boolean) => Promise<boolean>;
   handleBookPurge: (book: Book, syncBooks?: boolean) => Promise<boolean>;
   handleSetSelectMode: (selectMode: boolean) => void;
   handleShowDetailsBook: (book: Book) => void;
   handleLibraryNavigation: (targetGroup: string) => void;
-  handlePushLibrary: () => Promise<void>;
-  booksTransferProgress: { [key: string]: number | null };
   contentSearch: ContentSearchRequest | null;
   onSearchContents: () => void;
   onSearchProgress?: (value: number | null) => void;
@@ -188,15 +179,12 @@ const Bookshelf: React.FC<BookshelfProps> = ({
   isSelectNone,
   onScrollerRef,
   handleImportBooks,
-  handleBookUpload,
   handleBookDownload,
   handleBookDelete,
   handleBookPurge,
   handleSetSelectMode,
   handleShowDetailsBook,
   handleLibraryNavigation,
-  handlePushLibrary,
-  booksTransferProgress,
   contentSearch,
   onSearchContents,
   onSearchProgress,
@@ -485,7 +473,6 @@ const Bookshelf: React.FC<BookshelfProps> = ({
       const batch = books.slice(i, i + concurrency);
       await Promise.all(batch.map((book) => deleteBook(book, false)));
     }
-    handlePushLibrary();
     setSelectedBooks([]);
     setShowDeleteAlert(false);
     setShowSelectModeActions(true);
@@ -518,11 +505,6 @@ const Bookshelf: React.FC<BookshelfProps> = ({
     // Android, NSSharingServicePicker on macOS) so the user can fire it
     // off to Mail / Messages / WeChat / AirDrop / etc. Backed by
     // tauri-plugin-sharekit via appService.saveFile({ share: true }).
-    //
-    // This is intentionally distinct from the per-item "Share Book"
-    // context menu, which uploads the book to the readest backend and
-    // generates a public link. "Send" is offline file egress; "Share
-    // Book" is remote collaboration. They share zero infra.
     //
     // Linux has no system share sheet, and Windows is intentionally
     // disabled (issue #4343 — WebView2's native share UI blocks the main
@@ -564,8 +546,8 @@ const Bookshelf: React.FC<BookshelfProps> = ({
       // Resolve the file the same way bookContent.resolveBookContentSource
       // does, but via the public AppService surface (the underlying `fs`
       // is protected): managed copy under Books/<hash>/ first, then the
-      // device-local in-place import path. Cloud-only books or remote
-      // URL books can't be shared without first downloading them.
+      // device-local in-place import path. Books missing locally and remote
+      // URL books cannot be sent until their file is available on this device.
       const managedPath = getLocalBookFilename(book);
       let path: string;
       let base: 'Books' | 'None';
@@ -691,31 +673,6 @@ const Bookshelf: React.FC<BookshelfProps> = ({
     };
   }, []);
 
-  const { user } = useAuth();
-  const [shareDialogBook, setShareDialogBook] = useState<Book | null>(null);
-
-  useEffect(() => {
-    const handleShareIntent = (event: CustomEvent) => {
-      const book = (event.detail as { book?: Book } | undefined)?.book;
-      if (!book) return;
-      if (!user) {
-        // Logged-out users can't share their own files; route through the
-        // login flow instead. The /auth route preserves a return path.
-        eventDispatcher.dispatch('toast', {
-          type: 'info',
-          message: _('Sign in to share books'),
-          timeout: 2500,
-        });
-        return;
-      }
-      setShareDialogBook(book);
-    };
-    eventDispatcher.on('show-share-dialog', handleShareIntent);
-    return () => {
-      eventDispatcher.off('show-share-dialog', handleShareIntent);
-    };
-  }, [user, _]);
-
   // OverlayScrollbars + Virtuoso integration: Virtuoso manages its own
   // scroller; OverlayScrollbars wraps it for overlay scrollbar rendering.
   const osRootRef = useRef<HTMLDivElement>(null);
@@ -752,45 +709,6 @@ const Bookshelf: React.FC<BookshelfProps> = ({
 
   const selectedBooks = getSelectedBooks();
 
-  // Bulk download (#5244): a selected group stands in for every book it shows,
-  // which is how a 300-book folder gets onto a new device in one action. Only
-  // worth computing while the select-mode bar is up.
-  const downloadableBooks = isSelectMode
-    ? selectDownloadableBooks(selectedBooks, sortedBookshelfItems, filteredBooks)
-    : [];
-
-  const downloadSelectedBooks = async () => {
-    const books = downloadableBooks;
-    if (books.length === 0) return;
-    handleSetSelectMode(false);
-    // One summary up front rather than a toast per book: the Readest Cloud
-    // path returns as soon as each book is queued, but a file backend
-    // actually fetches them, and either way the user needs immediate feedback
-    // that the batch started.
-    eventDispatcher.dispatch('toast', {
-      type: 'info',
-      timeout: 2000,
-      message: _('Downloading {{count}} book(s)', { count: books.length }),
-    });
-    // Batched like the bulk delete path so a file backend isn't hit with
-    // hundreds of simultaneous fetches.
-    const concurrency = 20;
-    let failed = 0;
-    for (let i = 0; i < books.length; i += concurrency) {
-      const batch = books.slice(i, i + concurrency);
-      const results = await Promise.all(
-        batch.map((book) => handleBookDownload(book, { queued: true, silent: true })),
-      );
-      failed += results.filter((ok) => !ok).length;
-    }
-    if (failed > 0) {
-      eventDispatcher.dispatch('toast', {
-        type: 'error',
-        message: _('Failed to download {{count}} book(s)', { count: failed }),
-      });
-    }
-  };
-
   const isGridMode = viewMode === 'grid';
   const hasItems = sortedBookshelfItems.length > 0;
   // In grid mode the Import-Books "+" tile is rendered as an extra grid cell
@@ -799,7 +717,7 @@ const Bookshelf: React.FC<BookshelfProps> = ({
   const gridTotalCount = hasItems ? sortedBookshelfItems.length + 1 : 0;
 
   // Recently-read shelf: shares the availability-aware open path with per-item
-  // taps so cloud-only synced books download before opening. `openBook` is
+  // taps so locally missing mirrored books are restored before opening. `openBook` is
   // memoized inside the hook, keeping `openRecentBook` -> `recentShelfHeader`
   // -> `listContext` identities stable (no full-grid re-render churn).
   const { openBook } = useOpenBook({ setLoading, handleBookDownload });
@@ -835,8 +753,6 @@ const Bookshelf: React.FC<BookshelfProps> = ({
           onOpenBook={openRecentBook}
           toggleSelection={toggleSelection}
           handleSetSelectMode={handleSetSelectMode}
-          handleBookUpload={handleBookUpload}
-          handleBookDownload={handleBookDownload}
           showBookDetailsModal={handleShowDetailsBook}
           showTimeRemaining={showTimeRemaining}
         />
@@ -852,8 +768,6 @@ const Bookshelf: React.FC<BookshelfProps> = ({
       openRecentBook,
       toggleSelection,
       handleSetSelectMode,
-      handleBookUpload,
-      handleBookDownload,
       handleShowDetailsBook,
       showTimeRemaining,
     ],
@@ -928,16 +842,12 @@ const Bookshelf: React.FC<BookshelfProps> = ({
           setLoading={setLoading}
           toggleSelection={toggleSelection}
           handleGroupBooks={groupSelectedBooks}
-          handleBookUpload={handleBookUpload}
           handleBookDownload={handleBookDownload}
           handleBookDelete={handleBookDelete}
           handleSetSelectMode={handleSetSelectMode}
           handleShowDetailsBook={handleShowDetailsBook}
           handleLibraryNavigation={handleLibraryNavigation}
           handleUpdateReadingStatus={handleUpdateReadingStatus}
-          transferProgress={
-            'hash' in item ? booksTransferProgress[(item as Book).hash] || null : null
-          }
           showTimeRemaining={showTimeRemaining}
         />
       );
@@ -950,11 +860,9 @@ const Bookshelf: React.FC<BookshelfProps> = ({
       viewMode,
       coverFit,
       isSelectMode,
-      booksTransferProgress,
       iconSize15,
       handleImportBooks,
       toggleSelection,
-      handleBookUpload,
       handleBookDownload,
       handleBookDelete,
       handleSetSelectMode,
@@ -1064,12 +972,10 @@ const Bookshelf: React.FC<BookshelfProps> = ({
           }
           sendNearbyEnabled={isTauriAppPlatform() && isLocalSendEnabled()}
           onSendNearby={sendSelectedNearby}
-          canDownload={downloadableBooks.length > 0}
           onOpen={openSelectedBooks}
           onGroup={groupSelectedBooks}
           onDetails={openBookDetails}
           onStatus={showStatusSelection}
-          onDownload={downloadSelectedBooks}
           onSend={sendSelectedBook}
           onDelete={deleteSelectedBooks}
           onCancel={() => handleSetSelectMode(false)}
@@ -1125,11 +1031,6 @@ const Bookshelf: React.FC<BookshelfProps> = ({
           onUpdateStatus={updateBooksStatus}
         />
       )}
-      <ShareBookDialog
-        isOpen={!!shareDialogBook}
-        book={shareDialogBook}
-        onClose={() => setShareDialogBook(null)}
-      />
     </div>
   );
 };

@@ -36,9 +36,8 @@ const getAdditionalBasicFontLinks = () => `
     .join('&')}&display=swap" crossorigin="anonymous">
 `;
 
-// CJK bundles Readest serves itself. The default CDN only answers CORS for
-// readest.com origins, so a self-hosted deployment on a custom domain gets each
-// of these blocked unless it points FONT_BASE_URL at a host it controls (#5550).
+// Optional CJK bundles served by the user's deployment. With no FONT_BASE_URL
+// configured these are skipped instead of falling back to an official CDN.
 const hostedCJKFonts = [
   'Huiwen-MinchoGBK',
   'KingHwa_OldSong',
@@ -46,22 +45,23 @@ const hostedCJKFonts = [
   'GuanKiapTsingKhai-T',
 ];
 
-const DEFAULT_FONT_BASE_URL = 'https://storage.readest.com/public/font/dist';
-
-const getFontBaseUrl = () =>
-  (getRuntimeConfig()?.fontBaseUrl || DEFAULT_FONT_BASE_URL).replace(/\/+$/, '');
+const getFontBaseUrl = () => (getRuntimeConfig()?.fontBaseUrl || '').trim().replace(/\/+$/, '');
 
 const getAdditionalCJKFontLinks = () => {
   const fontBaseUrl = getFontBaseUrl();
   return `
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/misans-webfont@1.0.4/misans-l3/misans-l3/result.min.css" crossorigin="anonymous" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/lxgw-wenkai-screen-web/1.520.0/lxgwwenkaigbscreen/result.css" crossorigin="anonymous" />
-  ${hostedCJKFonts
-    .map(
-      (family) =>
-        `<link rel='stylesheet' href='${fontBaseUrl}/${encodeURIComponent(family)}/result.css' crossorigin="anonymous" />`,
-    )
-    .join('\n  ')}
+  ${
+    fontBaseUrl
+      ? hostedCJKFonts
+          .map(
+            (family) =>
+              `<link rel='stylesheet' href='${fontBaseUrl}/${encodeURIComponent(family)}/result.css' crossorigin="anonymous" />`,
+          )
+          .join('\n  ')
+      : ''
+  }
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?${cjkGoogleFonts
     .map(
       ({ family, weights }) =>

@@ -1,11 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { NextRequest } from 'next/server';
 
-const validateUserAndTokenMock = vi.hoisted(() => vi.fn());
-vi.mock('@/utils/access', () => ({
-  validateUserAndToken: (...args: unknown[]) => validateUserAndTokenMock(...args),
-}));
-
 import { POST } from '@/app/api/yandex-translate/route';
 
 const makeReq = (
@@ -14,18 +9,17 @@ const makeReq = (
     body?: string;
     origin?: string | null;
     contentLength?: string | null;
-    authorization?: string;
+    userAgent?: string;
   } = {},
 ) => {
   const body = init.body ?? 'options=0&text=Hello';
-  const headers: Record<string, string> = {
-    authorization: init.authorization ?? 'Bearer test-token',
-  };
-  if (init.origin !== null) headers['origin'] = init.origin ?? 'https://web.readest.com';
+  const headers: Record<string, string> = {};
+  headers['user-agent'] = init.userAgent ?? 'test-client';
+  if (init.origin !== null) headers['origin'] = init.origin ?? 'https://app.local';
   if (init.contentLength !== null) {
     headers['content-length'] = init.contentLength ?? String(new TextEncoder().encode(body).length);
   }
-  return new NextRequest(`https://web.readest.com/api/yandex-translate?${query}`, {
+  return new NextRequest(`https://app.local/api/yandex-translate?${query}`, {
     method: 'POST',
     body,
     headers,
@@ -35,10 +29,6 @@ const makeReq = (
 let fetchSpy: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
-  validateUserAndTokenMock.mockReset().mockImplementation(async (authorization: string | null) => ({
-    user: authorization ? { id: authorization } : null,
-    token: authorization,
-  }));
   fetchSpy = vi.fn().mockResolvedValue(
     new Response('{"code":200,"text":["Bonjour"]}', {
       status: 200,
@@ -55,17 +45,11 @@ afterEach(() => {
 });
 
 describe('yandex-translate proxy route', () => {
-  it('returns 403 before reading the body or fetching when unauthenticated', async () => {
-    validateUserAndTokenMock.mockResolvedValue({ user: null, token: null });
-    const request = makeReq();
-    const textSpy = vi.spyOn(request, 'text');
+  it('accepts a same-origin request without official authentication', async () => {
+    const res = await POST(makeReq('endpoint=session'));
 
-    const res = await POST(request);
-
-    expect(res.status).toBe(403);
-    expect(await res.json()).toEqual({ error: 'Not authenticated' });
-    expect(textSpy).not.toHaveBeenCalled();
-    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(res.status).toBe(200);
+    expect(fetchSpy).toHaveBeenCalledOnce();
   });
 
   it('returns 400 for an unknown endpoint without fetching', async () => {
@@ -110,7 +94,7 @@ describe('yandex-translate proxy route', () => {
   });
 
   it('allows same-origin requests', async () => {
-    const res = await POST(makeReq('endpoint=session', { origin: 'https://web.readest.com' }));
+    const res = await POST(makeReq('endpoint=session', { origin: 'https://app.local' }));
     expect(res.status).toBe(200);
   });
 
@@ -150,20 +134,20 @@ describe('yandex-translate proxy route', () => {
     const pending = [1, 2, 3].map(() =>
       POST(
         makeReq('endpoint=session', {
-          origin: 'https://web.readest.com',
+          origin: 'https://app.local',
           contentLength: '0',
           body: '',
-          authorization: 'Bearer user-a',
+          userAgent: 'client-a',
         }),
       ),
     );
     await vi.waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(3));
 
     const rejectedRequest = makeReq('endpoint=session', {
-      origin: 'https://web.readest.com',
+      origin: 'https://app.local',
       contentLength: '0',
       body: '',
-      authorization: 'Bearer user-a',
+      userAgent: 'client-a',
     });
     const textSpy = vi.spyOn(rejectedRequest, 'text');
     const rejected = await POST(rejectedRequest);
@@ -175,7 +159,7 @@ describe('yandex-translate proxy route', () => {
       makeReq('endpoint=session', {
         contentLength: '0',
         body: '',
-        authorization: 'Bearer user-b',
+        userAgent: 'client-b',
       }),
     );
     await vi.waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(4));

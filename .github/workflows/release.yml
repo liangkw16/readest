@@ -85,6 +85,7 @@ jobs:
 
   build-koreader-plugin:
     needs: get-release
+    if: ${{ github.repository == 'readest/readest' }}
     permissions:
       contents: write
     runs-on: ubuntu-latest
@@ -120,6 +121,7 @@ jobs:
 
   build-calibre-plugin:
     needs: get-release
+    if: ${{ github.repository == 'readest/readest' }}
     permissions:
       contents: write
     runs-on: ubuntu-latest
@@ -147,6 +149,7 @@ jobs:
 
   build-browser-extension:
     needs: get-release
+    if: ${{ github.repository == 'readest/readest' }}
     permissions:
       contents: write
     runs-on: ubuntu-latest
@@ -286,15 +289,7 @@ jobs:
 
       - name: create .env.local file for Next.js
         run: |
-          echo "NEXT_PUBLIC_POSTHOG_KEY=${{ secrets.NEXT_PUBLIC_POSTHOG_KEY }}" >> .env.local
-          echo "NEXT_PUBLIC_POSTHOG_HOST=${{ secrets.NEXT_PUBLIC_POSTHOG_HOST }}" >> .env.local
-          echo "NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}" >> .env.local
-          echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}" >> .env.local
           echo "NEXT_PUBLIC_APP_PLATFORM=tauri" >> .env.local
-          echo "SENTRY_DSN=${{ secrets.SENTRY_DSN }}" >> .env.local
-          echo "SENTRY_AUTH_TOKEN=${{ secrets.SENTRY_AUTH_TOKEN }}" >> .env.local
-          echo "SENTRY_ORG=readest" >> .env.local
-          echo "SENTRY_PROJECT=readest" >> .env.local
           cp .env.local apps/readest-app/.env.local
 
       - name: build and upload Android apks
@@ -355,7 +350,7 @@ jobs:
           # ("Not Found") into latest.json and clobbering the release asset with
           # invalid JSON, which then breaks tauri-action's updater merge on every
           # subsequent build.
-          if ! curl -fsSL https://github.com/readest/readest/releases/latest/download/latest.json -o latest.json; then
+          if ! curl -fsSL https://github.com/${{ github.repository }}/releases/latest/download/latest.json -o latest.json; then
             echo "::error::Failed to download existing latest.json; aborting to avoid clobbering the release asset."
             exit 1
           fi
@@ -365,8 +360,8 @@ jobs:
           fi
 
           version=${{ needs.get-release.outputs.release_version }}
-          universial_apk_url="https://github.com/readest/readest/releases/download/${{ needs.get-release.outputs.release_tag }}/Readest_${version}_universal.apk"
-          arm64_apk_url="https://github.com/readest/readest/releases/download/${{ needs.get-release.outputs.release_tag }}/Readest_${version}_arm64.apk"
+          universial_apk_url="https://github.com/${{ github.repository }}/releases/download/${{ needs.get-release.outputs.release_tag }}/Readest_${version}_universal.apk"
+          arm64_apk_url="https://github.com/${{ github.repository }}/releases/download/${{ needs.get-release.outputs.release_tag }}/Readest_${version}_arm64.apk"
 
           universial_sig=$(cat Readest_${version}_universal.apk.sig)
           arm64_sig=$(cat Readest_${version}_arm64.apk.sig)
@@ -513,7 +508,7 @@ jobs:
           # ("Not Found") into latest.json and clobbering the release asset with
           # invalid JSON, which then breaks tauri-action's updater merge on every
           # subsequent build.
-          if ! curl -fsSL https://github.com/readest/readest/releases/latest/download/latest.json -o latest.json; then
+          if ! curl -fsSL https://github.com/${{ github.repository }}/releases/latest/download/latest.json -o latest.json; then
             echo "::error::Failed to download existing latest.json; aborting to avoid clobbering the release asset."
             exit 1
           fi
@@ -536,7 +531,7 @@ jobs:
             exit 1
           fi
 
-          portable_url="https://github.com/readest/readest/releases/download/${{ needs.get-release.outputs.release_tag }}/$bin_file"
+          portable_url="https://github.com/${{ github.repository }}/releases/download/${{ needs.get-release.outputs.release_tag }}/$bin_file"
           portable_sig=$(cat $bin_file.sig)
 
           jq --arg url "$portable_url" \
@@ -549,6 +544,7 @@ jobs:
 
   upload-to-r2:
     needs: [get-release, build-tauri]
+    if: ${{ github.repository == 'readest/readest' }}
     permissions:
       contents: read
     uses: ./.github/workflows/upload-to-r2.yml

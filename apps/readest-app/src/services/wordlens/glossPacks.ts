@@ -1,14 +1,25 @@
 import { isWebAppPlatform } from '@/services/environment';
-import { downloadFile } from '@/libs/storage';
+import { getRuntimeConfig } from '@/services/runtimeConfig';
+import { downloadFile } from '@/libs/download';
 import type { AppService } from '@/types/system';
 import type { ProgressHandler } from '@/utils/transfer';
 import { webDownload } from '@/utils/transfer';
 import { GlossIndex } from './glossIndex';
 import type { GlossIndexData } from './types';
 
-export const WORDLENS_CDN_BASE = 'https://cdn.readest.com/wordlens';
 const STORE_DIR = 'wordlens'; // relative dir under BaseDir 'Data'
 const MANIFEST_FILE = 'manifest.json';
+
+const getWordLensBaseUrl = (): string | null => {
+  const baseUrl = (
+    getRuntimeConfig()?.wordLensBaseUrl ||
+    process.env['NEXT_PUBLIC_WORDLENS_BASE_URL'] ||
+    ''
+  )
+    .trim()
+    .replace(/\/+$/, '');
+  return baseUrl || null;
+};
 
 export interface WordLensPack {
   pair: string;
@@ -47,12 +58,11 @@ const ensureStoreDir = async (appService: AppService): Promise<void> => {
   }
 };
 
-// Type of the (injectable) Rust-backed downloader, matching libs/storage's
+// Type of the (injectable) Rust-backed downloader, matching libs/download's
 // `downloadFile`. Injected so the temp-file path can be unit-tested.
 type DownloadFileFn = (params: {
   appService: AppService;
   dst: string;
-  cfp: string;
   url: string;
   onProgress?: ProgressHandler;
   singleThreaded?: boolean;
@@ -65,8 +75,7 @@ type DownloadFileFn = (params: {
  * `resolveFilePath(rel, 'Data')` and addressed with base 'None'), mirroring
  * the OPDS auto-download idiom in `services/opds/autoDownload.ts`. Routing
  * through Rust (rather than a webview fetch) avoids cross-origin/CORS concerns
- * on the webview — CSP itself is fine, since tauri.conf's connect-src
- * whitelists https://*.readest.com.
+ * for the user-configured pack host.
  */
 export const downloadViaTempFile = async (
   appService: AppService,
@@ -79,7 +88,7 @@ export const downloadViaTempFile = async (
   crypto.getRandomValues(ids);
   const tmpRel = `${STORE_DIR}/.dl-${ids[0]!.toString(36)}.tmp`;
   const dst = await appService.resolveFilePath(tmpRel, 'Data'); // ABSOLUTE path under Data
-  await downloadFileFn({ appService, dst, cfp: dst, url, onProgress, singleThreaded: true });
+  await downloadFileFn({ appService, dst, url, onProgress, singleThreaded: true });
   try {
     return (await appService.readFile(dst, 'None', 'binary')) as ArrayBuffer;
   } finally {
@@ -91,11 +100,9 @@ export const downloadViaTempFile = async (
   }
 };
 
-// Default cross-platform downloader. On web a plain fetch to the CDN works and
-// gives streaming progress; on Tauri we route through the Rust download path to
-// avoid cross-origin/CORS concerns on the webview (CSP is fine — tauri.conf's
-// connect-src whitelists https://*.readest.com), writing to a temp file and
-// reading the bytes back for hashing.
+// Default cross-platform downloader. On web a plain fetch to the configured
+// host gives streaming progress; on Tauri we route through the Rust download
+// path, writing to a temp file and reading the bytes back for hashing.
 export const defaultDownloader = async (
   appService: AppService,
   url: string,
@@ -145,10 +152,12 @@ export const fetchManifest = async (
   opts?: { download?: BytesDownloader; force?: boolean },
 ): Promise<WordLensManifest | null> => {
   if (manifestPromise && !opts?.force) return manifestPromise;
-  const download = getDownloader(appService, opts?.download);
+  const baseUrl = getWordLensBaseUrl();
   manifestPromise = (async () => {
+    if (!baseUrl) return readPersistedManifest(appService);
+    const download = getDownloader(appService, opts?.download);
     try {
-      const bytes = await download(`${WORDLENS_CDN_BASE}/${MANIFEST_FILE}`);
+      const bytes = await download(`${baseUrl}/${MANIFEST_FILE}`);
       const text = new TextDecoder().decode(bytes);
       const manifest = JSON.parse(text) as WordLensManifest;
       await ensureStoreDir(appService);
@@ -183,8 +192,11 @@ const ensurePackUncached = async (
   // pack. The settings panel passes allowDownload:true for explicit downloads.
   if (opts?.allowDownload === false) return null;
 
+  const baseUrl = getWordLensBaseUrl();
+  if (!baseUrl) return null;
+
   const download = getDownloader(appService, opts?.download);
-  const url = `${WORDLENS_CDN_BASE}/${pack.file}?v=${pack.sha256.slice(0, 8)}`;
+  const url = `${baseUrl}/${pack.file}?v=${pack.sha256.slice(0, 8)}`;
   let bytes: ArrayBuffer;
   try {
     bytes = await download(url, opts?.onProgress);

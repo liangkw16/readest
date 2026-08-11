@@ -86,7 +86,7 @@ async function withRequestLimit<T>(task: () => Promise<T>, signal?: AbortSignal)
   }
 }
 
-const getRequestTarget = (endpoint: 'session' | 'translate', token?: string | null) => {
+const getRequestTarget = (endpoint: 'session' | 'translate') => {
   if (isTauriAppPlatform()) {
     return {
       fetchImpl: tauriFetch,
@@ -95,15 +95,11 @@ const getRequestTarget = (endpoint: 'session' | 'translate', token?: string | nu
       direct: true,
     };
   }
-  if (!token) {
-    throw new Error('yandex translate requires authentication in web builds');
-  }
   return {
     fetchImpl: window.fetch.bind(window),
     url: `${PROXY_URL}?endpoint=${endpoint}`,
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
-      Authorization: `Bearer ${token}`,
     },
     direct: false,
   };
@@ -128,8 +124,8 @@ const baseParams = () => ({
   yum: genYandexMetrikaUID(),
 });
 
-async function createSession(token?: string | null): Promise<string> {
-  const { fetchImpl, url, headers, direct } = getRequestTarget('session', token);
+async function createSession(): Promise<string> {
+  const { fetchImpl, url, headers, direct } = getRequestTarget('session');
   const params = new URLSearchParams(baseParams());
   const signal = requestSignal(direct);
   const response = await withRequestLimit(
@@ -163,12 +159,12 @@ async function createSession(token?: string | null): Promise<string> {
   return session.id;
 }
 
-async function getSession(token?: string | null, signal?: AbortSignal): Promise<string> {
+async function getSession(signal?: AbortSignal): Promise<string> {
   signal?.throwIfAborted();
   if (cachedSession && cachedSession.expiresAt > Date.now()) {
     return cachedSession.id;
   }
-  sessionPromise ??= createSession(token).finally(() => {
+  sessionPromise ??= createSession().finally(() => {
     sessionPromise = null;
   });
   if (!signal) return sessionPromise;
@@ -186,12 +182,11 @@ async function translateChunk(
   text: string,
   sourceLang: string,
   targetLang: string,
-  token?: string | null,
   signal?: AbortSignal,
   retrySession = true,
 ): Promise<string> {
   signal?.throwIfAborted();
-  const sid = await getSession(token, signal);
+  const sid = await getSession(signal);
   const params = new URLSearchParams({
     ...baseParams(),
     sid: `${sid}-5-0`,
@@ -208,7 +203,7 @@ async function translateChunk(
     ['text', text],
   ]);
 
-  const { fetchImpl, url, headers, direct } = getRequestTarget('translate', token);
+  const { fetchImpl, url, headers, direct } = getRequestTarget('translate');
   const transportSignal = requestSignal(direct, signal);
   const response = await withRequestLimit(
     () =>
@@ -231,7 +226,7 @@ async function translateChunk(
     const sessionInvalid = errorCode === 401 || errorCode === 403;
     if (sessionInvalid && cachedSession?.id === sid) cachedSession = null;
     if (sessionInvalid && retrySession) {
-      return translateChunk(text, sourceLang, targetLang, token, signal, false);
+      return translateChunk(text, sourceLang, targetLang, signal, false);
     }
     throw new Error(
       `yandex translate failed with status ${response.status}: ${data?.message ?? data?.error ?? 'unknown error'}`,
@@ -246,14 +241,11 @@ async function translateChunk(
 export const yandexProvider: TranslationProvider = {
   name: 'yandex',
   label: _('Yandex Translate'),
-  get authRequired() {
-    return !isTauriAppPlatform();
-  },
   translate: async (
     texts: string[],
     sourceLang: string,
     targetLang: string,
-    token?: string | null,
+    _token?: string | null,
     _useCache?: boolean,
     signal?: AbortSignal,
   ): Promise<string[]> => {
@@ -289,7 +281,6 @@ export const yandexProvider: TranslationProvider = {
           job.chunk,
           source_lang,
           target_lang,
-          token,
           signal,
         );
       }

@@ -9,9 +9,9 @@ describe('buildAnnotationUrl', () => {
     expect(url.startsWith('readest://book/abc/annotation/n1')).toBe(true);
   });
 
-  it('builds the HTTPS web URL when linkType is "web"', () => {
+  it('builds a same-origin web URL when linkType is "web"', () => {
     const url = buildAnnotationUrl(link, 'web');
-    expect(url.startsWith('https://')).toBe(true);
+    expect(new URL(url).origin).toBe(window.location.origin);
     expect(url).toContain('/o/book/abc/annotation/n1');
   });
 

@@ -15,7 +15,7 @@ const createBook = (overrides: Partial<Book> = {}): Book => ({
 });
 
 describe('getBookContextMenuItemIds', () => {
-  it('returns a deterministic order for a local downloaded book', () => {
+  it('keeps a local downloaded book menu free of official transfer actions', () => {
     const book = createBook({ downloadedAt: 1 });
     expect(getBookContextMenuItemIds(book)).toEqual([
       'select',
@@ -25,8 +25,6 @@ describe('getBookContextMenuItemIds', () => {
       'showDetails',
       'showInFinder',
       'searchGoodreads',
-      'upload',
-      'share',
       'delete',
     ]);
   });
@@ -51,8 +49,6 @@ describe('getBookContextMenuItemIds', () => {
       'showDetails',
       'showInFinder',
       'searchGoodreads',
-      'upload',
-      'share',
       'delete',
     ]);
   });
@@ -68,8 +64,6 @@ describe('getBookContextMenuItemIds', () => {
       'showDetails',
       'showInFinder',
       'searchGoodreads',
-      'upload',
-      'share',
       'delete',
     ]);
   });
@@ -84,13 +78,11 @@ describe('getBookContextMenuItemIds', () => {
       'showDetails',
       'showInFinder',
       'searchGoodreads',
-      'upload',
-      'share',
       'delete',
     ]);
   });
 
-  it('offers Download (not Upload) for a cloud-only book', () => {
+  it('ignores legacy remote-storage timestamps when building local actions', () => {
     const book = createBook({ uploadedAt: 1 });
     expect(getBookContextMenuItemIds(book)).toEqual([
       'select',
@@ -100,13 +92,11 @@ describe('getBookContextMenuItemIds', () => {
       'showDetails',
       'showInFinder',
       'searchGoodreads',
-      'download',
-      'share',
       'delete',
     ]);
   });
 
-  it('omits download/upload/share for a book that is neither downloaded nor uploaded', () => {
+  it('returns local actions for an in-place book', () => {
     const book = createBook({ filePath: '/some/external/file.epub' });
     expect(getBookContextMenuItemIds(book)).toEqual([
       'select',
@@ -120,10 +110,7 @@ describe('getBookContextMenuItemIds', () => {
     ]);
   });
 
-  // Issue #5307 — a feed subscription has no file anywhere: the cloud has
-  // nothing to upload it to and nothing to hand a share link. Offering those
-  // actions only produces a failed transfer.
-  it('omits download/upload/share for a feed book (issue #5307)', () => {
+  it('returns local actions for a fileless feed book', () => {
     const book = createBook({
       downloadedAt: 1,
       url: buildFeedBookUrl('https://www.saastr.com/feed/'),

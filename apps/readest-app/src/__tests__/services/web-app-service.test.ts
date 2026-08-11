@@ -18,7 +18,11 @@ vi.mock('@/utils/misc', async (importOriginal) => {
 });
 
 vi.mock('@/services/environment', () => ({
+  getAPIBaseUrl: vi.fn().mockReturnValue('/api'),
+  getNodeAPIBaseUrl: vi.fn().mockReturnValue('/api'),
   isPWA: vi.fn().mockReturnValue(false),
+  isTauriAppPlatform: vi.fn().mockReturnValue(false),
+  isWebAppPlatform: vi.fn().mockReturnValue(true),
 }));
 
 // Mock settingsService, bookService, etc. to avoid deep deps
@@ -51,15 +55,6 @@ vi.mock('@/services/bookService', () => ({
   loadBookConfig: vi.fn().mockResolvedValue({}),
   fetchBookDetails: vi.fn().mockResolvedValue({}),
   saveBookConfig: vi.fn().mockResolvedValue(undefined),
-}));
-
-vi.mock('@/services/cloudService', () => ({
-  deleteBook: vi.fn().mockResolvedValue(undefined),
-  uploadFileToCloud: vi.fn().mockResolvedValue(undefined),
-  uploadBook: vi.fn().mockResolvedValue(undefined),
-  downloadCloudFile: vi.fn().mockResolvedValue(undefined),
-  downloadBookCovers: vi.fn().mockResolvedValue(undefined),
-  downloadBook: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock('@/services/fontService', () => ({

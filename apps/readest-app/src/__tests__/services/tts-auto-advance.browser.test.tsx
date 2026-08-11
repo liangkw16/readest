@@ -99,16 +99,12 @@ vi.mock('@/services/tts/NativeTTSClient', () => ({
   }),
 }));
 
-// useEnv/useAuth throw outside their providers; stub them (test-side module
-// mocks, not a production seam). A null appService exercises the web/desktop
+// useEnv throws outside its provider; stub it (test-side module mock, not a
+// production seam). A null appService exercises the web/desktop
 // code paths in useTTSControl (no mobile/iOS branches).
 vi.mock('@/context/EnvContext', () => ({
   useEnv: () => ({ envConfig: {}, appService: null }),
   EnvProvider: ({ children }: { children: ReactNode }) => children,
-}));
-vi.mock('@/context/AuthContext', () => ({
-  useAuth: () => ({ user: null }),
-  AuthProvider: ({ children }: { children: ReactNode }) => children,
 }));
 
 // ---------------------------------------------------------------------------

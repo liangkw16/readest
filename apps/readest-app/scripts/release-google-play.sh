@@ -39,7 +39,7 @@ fi
 
 source .env.google-play.local
 echo "🚀 Running: pnpm tauri android build (googleplay flavor)"
-ORG_GRADLE_PROJECT_storeFlavor=googleplay pnpm tauri android build --config src-tauri/tauri.playstore.conf.json
+pnpm tauri android build --config src-tauri/tauri.playstore.conf.json
 
 # --- ADD PERMISSION BACK AFTER BUILD ---
 if ! grep -q 'REQUEST_INSTALL_PACKAGES' "$MANIFEST"; then

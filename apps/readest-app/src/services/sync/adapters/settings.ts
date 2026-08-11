@@ -81,7 +81,7 @@ export const SETTINGS_WHITELIST = [
   // S3-compatible object store. endpoint / region / bucket sync as plaintext so
   // a fresh device pre-fills the connect form; accessKeyId / secretAccessKey are
   // listed in `encryptedFields` below. Per-device bookkeeping (enabled,
-  // deviceId, lastSyncedAt, providerSelectedAt, sync sub-toggles) is
+  // deviceId, lastSyncedAt, and sync sub-toggles) is
   // deliberately excluded — mirrors WebDAV.
   's3.endpoint',
   's3.region',
@@ -98,20 +98,8 @@ export const SETTINGS_WHITELIST = [
  * Dictionaries off, provider order / enable flags / web searches must
  * neither leave nor enter the device (#5465).
  *
- * `publishSettingsIfChanged` drops these from the push and
- * `applyRemoteSettings` strips them from an incoming patch whenever
- * `isSyncCategoryEnabled('dictionary')` is false.
- *
- * The dependency edge in `syncCategories.ts` (dictionary requires
- * settings) still holds in the other direction: these can only travel
- * while the settings row itself syncs.
- *
- * Re-enable semantics differ slightly from a whole-kind category: the
- * settings row keeps pulling while Dictionaries is off, so its cursor
- * advances past the discarded values and re-enabling doesn't backfill
- * them. The local side does resume immediately — the push snapshot was
- * never updated for these paths, so the next save publishes the local
- * values — and any later remote edit lands normally under per-field LWW.
+ * These paths remain grouped for schema compatibility with previously
+ * persisted settings replicas.
  */
 export const SETTINGS_DICTIONARY_FIELDS = [
   'dictionarySettings.providerOrder',

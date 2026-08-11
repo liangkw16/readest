@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import type { EnvConfigType } from '@/services/environment';
 import type { OPDSCatalog } from '@/types/opds';
 import { useSettingsStore } from './settingsStore';
-import { getReplicaPersistEnv } from '@/services/sync/replicaPersist';
+import { getLocalPersistEnv } from '@/services/localPersistEnv';
 import { publishReplicaDelete, publishReplicaUpsert } from '@/services/sync/replicaPublish';
 import {
   computeOpdsCatalogContentId,
@@ -200,7 +200,7 @@ export const useCustomOPDSStore = create<OPDSStoreState>((set, get) => ({
       }
       return { catalogs: [...state.catalogs, catalog] };
     });
-    const env = getReplicaPersistEnv();
+    const env = getLocalPersistEnv();
     if (env) void get().saveCustomOPDSCatalogs(env);
   },
 
@@ -212,7 +212,7 @@ export const useCustomOPDSStore = create<OPDSStoreState>((set, get) => ({
         c.id === target.id ? { ...c, deletedAt: Date.now() } : c,
       ),
     }));
-    const env = getReplicaPersistEnv();
+    const env = getLocalPersistEnv();
     if (env) void get().saveCustomOPDSCatalogs(env);
   },
 

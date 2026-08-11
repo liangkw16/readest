@@ -1,4 +1,4 @@
-import { describe, test, expect, vi, beforeEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 // Controllable WebSocket fake for the browser (isomorphic-ws) transport.
 const wsState = vi.hoisted(() => ({
@@ -41,22 +41,14 @@ vi.mock('@/services/environment', () => ({
   isTauriAppPlatform: () => false,
 }));
 
-vi.mock('@/utils/supabase', () => ({
-  supabase: { auth: { getSession: async () => ({ data: { session: null } }) } },
-  createSupabaseClient: () => ({}),
-  createSupabaseAdminClient: () => ({}),
-}));
-
-// Controllable stub for the authenticated HTTPS proxy fetch.
+// Controllable stub for the same-origin HTTPS proxy fetch.
 const httpState = vi.hoisted(() => ({
   headers: {} as Record<string, string>,
   body: new Uint8Array([1, 2, 3]),
 }));
-vi.mock('@/utils/fetch', () => ({
-  fetchWithAuth: vi.fn(
-    async () => new Response(httpState.body, { status: 200, headers: httpState.headers }),
-  ),
-}));
+const httpFetchMock = vi.fn(
+  async () => new Response(httpState.body, { status: 200, headers: httpState.headers }),
+);
 
 const makeBinaryAudioFrame = (audio: Uint8Array) => {
   const header = new TextEncoder().encode('Path:audio\r\n');
@@ -175,9 +167,15 @@ describe('EdgeSpeechTTS.createAudioData over the HTTPS proxy (word boundaries vi
   beforeEach(() => {
     httpState.headers = {};
     httpState.body = new Uint8Array([1, 2, 3]);
+    httpFetchMock.mockClear();
+    vi.stubGlobal('fetch', httpFetchMock);
     (URL as unknown as { createObjectURL?: (blob: Blob) => string }).createObjectURL = vi.fn(
       () => 'blob:mock-object-url',
     );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   test('parses word boundaries from the X-TTS-Word-Boundaries response header', async () => {

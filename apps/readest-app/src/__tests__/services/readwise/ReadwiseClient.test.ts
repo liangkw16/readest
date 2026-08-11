@@ -11,6 +11,7 @@ vi.mock('@tauri-apps/plugin-http', () => ({
 }));
 
 vi.mock('@/services/environment', () => ({
+  getBaseUrl: vi.fn(() => ''),
   isTauriAppPlatform: vi.fn(() => false),
 }));
 

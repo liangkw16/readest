@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 const allowedOrigins = [
-  'https://web.readest.com',
   'https://tauri.localhost',
   'http://tauri.localhost',
   'http://localhost:3000',
@@ -19,7 +18,7 @@ export function middleware(request: NextRequest) {
 
   if (isApi) {
     const origin = request.headers.get('origin') ?? '';
-    const isAllowedOrigin = allowedOrigins.includes(origin);
+    const isAllowedOrigin = origin === request.nextUrl.origin || allowedOrigins.includes(origin);
 
     if (request.method === 'OPTIONS') {
       // Echo the requested headers rather than answering `*`: the Fetch spec
@@ -59,17 +58,7 @@ export function middleware(request: NextRequest) {
   // of the top-level browsing context, determined by the document's headers.
   const response = NextResponse.next();
   response.headers.set('Cross-Origin-Opener-Policy', 'same-origin');
-  // The /s share landing embeds the book cover via an <img> that redirects to a
-  // cross-origin R2 presigned URL. Under COEP: require-corp the browser blocks
-  // that image, because R2 can't attach a Cross-Origin-Resource-Policy header to
-  // a presigned GET. `credentialless` keeps the page cross-origin isolated — so
-  // EnvContext can still boot the Turso replica (SharedArrayBuffer) here when the
-  // user has sync enabled — while dropping the CORP requirement for no-cors
-  // subresources, letting the cover load with no client-side change. Every other
-  // route keeps the stricter require-corp.
-  const path = request.nextUrl.pathname;
-  const coep = path === '/s' || path.startsWith('/s/') ? 'credentialless' : 'require-corp';
-  response.headers.set('Cross-Origin-Embedder-Policy', coep);
+  response.headers.set('Cross-Origin-Embedder-Policy', 'require-corp');
   return response;
 }
 

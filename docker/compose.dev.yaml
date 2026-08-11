@@ -1,4 +1,4 @@
-# Overlay on top of compose.yaml.
+# Accountless hot-reload overlay on top of the client-only compose.yaml.
 # Usage (from the docker/ directory):
 #   docker compose -f compose.yaml -f compose.dev.yaml up --build -d
 services:
@@ -11,10 +11,9 @@ services:
     environment:
       # Required so pnpm does not abort when purging node_modules without a TTY
       CI: "true"
-    # Mount the source code for hot reload.
-    # Anonymous volumes shadow pre-built dirs inside the image so the
-    # container's installed deps and vendor assets are used instead of
-    # what's on the host.
+    # Mount source for hot reload while keeping dependencies and generated
+    # assets container-owned. Runtime service/asset URLs are inherited from
+    # compose.yaml; no login or backend stack is added for development.
     volumes:
       - ../:/app
       - /app/node_modules

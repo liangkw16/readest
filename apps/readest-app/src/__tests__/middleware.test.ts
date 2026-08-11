@@ -10,7 +10,7 @@ const coep = (path: string) =>
 describe('middleware CORS preflight', () => {
   const preflight = (requestedHeaders?: string) =>
     middleware(
-      new NextRequest('https://web.readest.com/api/sync', {
+      new NextRequest('https://app.local/api/opds/proxy', {
         method: 'OPTIONS',
         headers: {
           origin: 'http://tauri.localhost',
@@ -38,17 +38,10 @@ describe('middleware CORS preflight', () => {
 });
 
 describe('middleware cross-origin isolation headers', () => {
-  it('serves COEP credentialless on the /s share landing so the R2 cover <img> loads', () => {
-    // The cover redirects to a cross-origin R2 URL that can't carry a CORP
-    // header; credentialless keeps the page isolated while allowing it.
-    expect(coep('/s')).toBe('credentialless');
-    expect(coep('/s/Qmup0X1A8ovl2FmKJKA8mB')).toBe('credentialless');
-  });
-
-  it('keeps the stricter require-corp on every other document route', () => {
+  it('uses require-corp on every document route', () => {
     expect(coep('/')).toBe('require-corp');
     expect(coep('/library')).toBe('require-corp');
-    // Must not be caught by a naive startsWith('/s').
+    expect(coep('/s')).toBe('require-corp');
     expect(coep('/settings')).toBe('require-corp');
     expect(coep('/search')).toBe('require-corp');
   });

@@ -113,11 +113,6 @@ interface SelectDirectoryResponse {
   error?: string;
 }
 
-export interface GetStorefrontRegionCodeResponse {
-  regionCode?: string;
-  error?: string;
-}
-
 export interface RefreshEinkScreenResponse {
   success: boolean;
   error?: string;
@@ -307,13 +302,6 @@ export async function showFilePicker(): Promise<void> {
   await invoke('plugin:native-bridge|show_file_picker');
 }
 
-export async function getStorefrontRegionCode(): Promise<GetStorefrontRegionCodeResponse> {
-  const result = await invoke<GetStorefrontRegionCodeResponse>(
-    'plugin:native-bridge|get_storefront_region_code',
-  );
-  return result;
-}
-
 /**
  * Trigger a deep e-ink full screen refresh (GC / GC16 waveform) to clear
  * ghosting. Android-only; the native side probes several vendor mechanisms
@@ -349,44 +337,11 @@ export async function captureWebviewRegion(
 }
 
 // ── Sync passphrase keychain ────────────────────────────────────────────
-// Tauri-only. Wired into the TauriPassphraseStore (src/libs/crypto/
-// passphrase.ts) so the user's sync passphrase persists across app
-// launches via the OS keychain (macOS Keychain, Windows Credential
-// Manager, Linux libsecret, iOS Keychain, Android EncryptedSharedPrefs).
-
-export interface SetSyncPassphraseRequest {
-  passphrase: string;
-}
-
-export interface SyncPassphraseResponse {
-  success: boolean;
-  error?: string;
-}
-
-export interface GetSyncPassphraseResponse {
-  passphrase?: string;
-  error?: string;
-}
+// Used by user-configured cloud providers before storing OAuth credentials.
 
 export interface SyncKeychainAvailableResponse {
   available: boolean;
   error?: string;
-}
-
-export async function setSyncPassphrase(
-  request: SetSyncPassphraseRequest,
-): Promise<SyncPassphraseResponse> {
-  return invoke<SyncPassphraseResponse>('plugin:native-bridge|set_sync_passphrase', {
-    payload: request,
-  });
-}
-
-export async function getSyncPassphrase(): Promise<GetSyncPassphraseResponse> {
-  return invoke<GetSyncPassphraseResponse>('plugin:native-bridge|get_sync_passphrase');
-}
-
-export async function clearSyncPassphrase(): Promise<SyncPassphraseResponse> {
-  return invoke<SyncPassphraseResponse>('plugin:native-bridge|clear_sync_passphrase');
 }
 
 export async function isSyncKeychainAvailable(): Promise<SyncKeychainAvailableResponse> {
@@ -394,12 +349,10 @@ export async function isSyncKeychainAvailable(): Promise<SyncKeychainAvailableRe
 }
 
 // ── Keyed secure key-value store ─────────────────────────────────────────
-// Tauri-only. A generic, keyed secret store over the same OS keychain backends
-// as the sync passphrase above, so secrets that aren't the single sync
-// passphrase (the Google Drive OAuth token set, and any future cloud
-// provider's refresh token) get the same XSS-free cross-launch persistence
-// without each needing its own native command. Availability is the same probe
-// as `is_sync_keychain_available`.
+// Tauri-only. A generic keyed secret store over the platform keychain, so
+// Google Drive and OneDrive refresh tokens get XSS-free cross-launch
+// persistence without provider-specific commands. Availability is reported by
+// `is_sync_keychain_available`.
 
 export interface SetSecureItemRequest {
   key: string;

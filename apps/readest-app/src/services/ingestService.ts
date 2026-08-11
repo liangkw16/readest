@@ -1,8 +1,6 @@
 import type { Book, BookLookupIndex } from '@/types/book';
 import type { AppService, OsPlatform } from '@/types/system';
 import type { SystemSettings } from '@/types/settings';
-import { transferManager } from '@/services/transferManager';
-import { isReadestCloudStorageActive } from '@/services/sync/cloudSyncProvider';
 import { normalizeFilePathForIndex } from '@/services/bookService';
 import { isContentURI, isValidURL } from '@/utils/misc';
 import { isPseStreamFileName } from '@/services/opds/pseStream';
@@ -10,7 +8,6 @@ import { isPseStreamFileName } from '@/services/opds/pseStream';
 export interface IngestFileDeps {
   appService: AppService;
   settings: SystemSettings;
-  isLoggedIn: boolean;
   /**
    * Pre-resolved absolute path to Readest's own `Books/` directory. When
    * provided, any source file already living under this prefix is excluded
@@ -35,9 +32,7 @@ export interface IngestFileOptions {
   groupName?: string;
   /** Tag parsed from a Send-to-Readest email subject (`#scifi`). */
   subjectTag?: string;
-  /** Upload to the cloud even when the user has turned off book sync. */
-  forceUpload?: boolean;
-  /** Transient import (not stored long-term) — never uploaded. */
+  /** Transient import (not stored long-term). */
   transient?: boolean;
   /**
    * Opt out of automatic in-place import even when the source file lives under
@@ -145,16 +140,16 @@ function shouldImportInPlace(
  * import, the /send page, the inbox drainer — calls this so a sent book behaves
  * exactly like a locally-imported one.
  *
- * Persistence (`updateBooks` / `saveLibraryBooks`) and the sync push stay with
- * the caller on purpose: batch importers save once per batch, single-item
- * callers save per item. The shared logic that must NOT diverge — importing,
- * group/tag metadata, the upload decision — lives here.
+ * Persistence (`updateBooks` / `saveLibraryBooks`) stays with the caller on
+ * purpose: batch importers save once per batch, single-item callers save per
+ * item. FileSyncProvider observes the saved local library and converges it to
+ * whichever user-owned backends are enabled.
  */
 export async function ingestFile(
   opts: IngestFileOptions,
   deps: IngestFileDeps,
 ): Promise<Book | null> {
-  const { appService, settings, isLoggedIn, appBooksPrefix } = deps;
+  const { appService, settings, appBooksPrefix } = deps;
 
   const inPlaceRoots = settings.externalLibraryFolders ?? [];
   const inPlace = shouldImportInPlace(
@@ -169,8 +164,8 @@ export async function ingestFile(
   // the user's registered external library folders and the byFilePath index
   // already knows about it, skip importBook entirely and return the existing
   // library entry verbatim. No fs.openFile, no native parser, no partialMD5,
-  // no timestamp / cover / config writes — and crucially no downstream group
-  // / tag / upload logic, so a re-scan can't silently rewrite library sort
+  // no timestamp / cover / config writes — and crucially no downstream
+  // group/tag mutations, so a re-scan can't silently rewrite library sort
   // order or clobber a manual GroupingModal assignment via a path-derived
   // group string.
   //
@@ -230,31 +225,6 @@ export async function ingestFile(
       // stamped metadata edit would win the group and drop this tag.
       book.metadataUpdatedAt = book.updatedAt;
     }
-  }
-
-  // Sent books force the upload so they reach the user's other devices even
-  // when book sync is off; normal library imports honor the Manage Sync
-  // "book" toggle, which defaults on — upload unless the user turns it off.
-  // Transient imports are never uploaded — they're short-lived previews
-  // (e.g. /send view) and shouldn't pollute the user's cloud library.
-  // In-place imports (book.filePath set, content under one of the user's
-  // external library folders) DO get uploaded: from a backup/sync standpoint
-  // they are equivalent to a hash-copy book — only the local storage
-  // location differs. uploadBook reads straight from book.filePath in that
-  // case; downloads on other devices land in Books/<hash>/ as a normal copy.
-  // Readest Cloud storage is written only when Readest Cloud is one of the
-  // enabled providers (#5062 lets several run at once). When it is unchecked,
-  // this gate is false and the file-sync engine mirrors the import instead
-  // (including Sent books, which reach other devices via each enabled backend
-  // whose syncBooks toggle is on).
-  if (
-    !opts.transient &&
-    isLoggedIn &&
-    !book.uploadedAt &&
-    (opts.forceUpload || settings.syncCategories?.book !== false) &&
-    isReadestCloudStorageActive(settings)
-  ) {
-    transferManager.queueUpload(book);
   }
 
   return book;

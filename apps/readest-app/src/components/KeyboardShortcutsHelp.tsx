@@ -128,7 +128,7 @@ export const KeyboardShortcutsHelp = () => {
           </div>
           <div className='border-base-200 mt-2 border-t pt-3 text-center'>
             <Link
-              href='https://github.com/readest/readest/wiki/Keyboard-Shortcuts-Reference-Guide'
+              href='https://github.com/liangkw16/readest/wiki/Keyboard-Shortcuts-Reference-Guide'
               className='text-primary text-sm underline'
             >
               {_('View all keyboard shortcuts')}

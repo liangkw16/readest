@@ -6,9 +6,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { isOPDSCatalog, getPublication, getFeed, getOpenSearch } from 'foliate-js/opds.js';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { useEnv } from '@/context/EnvContext';
-import { useAuth } from '@/context/AuthContext';
 import { isWebAppPlatform } from '@/services/environment';
-import { downloadFile } from '@/libs/storage';
+import { downloadFile } from '@/libs/download';
 import { Toast } from '@/components/Toast';
 import { useThemeStore } from '@/store/themeStore';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -16,9 +15,6 @@ import { useKeyDownActions } from '@/hooks/useKeyDownActions';
 import { useLibraryStore } from '@/store/libraryStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useCustomOPDSStore } from '@/store/customOPDSStore';
-import { transferManager } from '@/services/transferManager';
-import { isReadestCloudStorageActive } from '@/services/sync/cloudSyncProvider';
-import { useTransferQueue } from '@/hooks/useTransferQueue';
 import { useTheme } from '@/hooks/useTheme';
 import { useLibrary } from '@/hooks/useLibrary';
 import { eventDispatcher } from '@/utils/event';
@@ -84,7 +80,6 @@ export default function BrowserPage() {
   const _ = useTranslation();
   const router = useRouter();
   const { appService, envConfig } = useEnv();
-  const { user } = useAuth();
   const { libraryLoaded } = useLibrary();
   // Subscribe to library so the publication detail page can detect copies
   // already imported (shown as "Open & Read" instead of "Download"), and
@@ -138,7 +133,6 @@ export default function BrowserPage() {
   const searchTermRef = useRef('');
 
   useTheme({ systemUIVisible: false });
-  useTransferQueue(libraryLoaded);
 
   useEffect(() => {
     startURLRef.current = state.startURL;
@@ -602,7 +596,6 @@ export default function BrowserPage() {
           const responseHeaders = await downloadFile({
             appService,
             dst: dstFilePath,
-            cfp: '',
             url: downloadUrl,
             headers,
             singleThreaded: true,
@@ -622,15 +615,13 @@ export default function BrowserPage() {
           try {
             const book = await appService.importBook(dstFilePath, library);
             // The catalog's curated metadata wins over the file's embedded
-            // record (#5270) — applied before the cloud upload is queued so
-            // peers get the same fields. `publication` already carries the
-            // detail-document merge (#4749), so this is the fullest record.
+            // record (#5270). `publication` already carries the detail-document
+            // merge (#4749), so this is the fullest record.
             if (book && publication) {
               applyOPDSMetadata(book, getOPDSBookMetadata(publication));
             }
             // The catalog's own artwork wins over the one embedded in the file
-            // (#5270) — applied before the cloud upload is queued so peers get
-            // the same cover. Best effort: never fail the import over it.
+            // (#5270). Best effort: never fail the import over it.
             if (book && publicationCoverHref) {
               try {
                 await applyOPDSCover({
@@ -656,11 +647,6 @@ export default function BrowserPage() {
                 console.error('OPDS: failed to update source map:', sourceMapError);
               }
             }
-            if (user && book && !book.uploadedAt && isReadestCloudStorageActive(settings)) {
-              setTimeout(() => {
-                transferManager.queueUpload(book);
-              }, 3000);
-            }
             setLibrary(library);
             appService.saveLibraryBooks(library);
             return book;
@@ -674,15 +660,7 @@ export default function BrowserPage() {
         throw e;
       }
     },
-    [
-      user,
-      state.baseURL,
-      appService,
-      libraryLoaded,
-      catalogSourceId,
-      publication,
-      publicationCoverHref,
-    ],
+    [state.baseURL, appService, libraryLoaded, catalogSourceId, publication, publicationCoverHref],
   );
 
   const handleStream = useCallback(
@@ -741,7 +719,6 @@ export default function BrowserPage() {
         await downloadFile({
           appService,
           dst: cachedPath,
-          cfp: '',
           url: downloadUrl,
           singleThreaded: true,
           skipSslVerification: true,

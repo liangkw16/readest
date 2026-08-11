@@ -34,14 +34,13 @@ import { shouldOpenTransient } from '@/helpers/openWith';
  *     - otherwise call `appService.importBook` with `transient: true`, which
  *       creates an ephemeral `Book` (with `deletedAt` set and `filePath`
  *       pointing at the original URI) without writing to `Books/<hash>/` or
- *       uploading to the cloud, then navigate to the reader on that hash.
+ *       starting a sync pass, then navigate to the reader on that hash.
  *
  *   `'SEND'` / undefined (iOS / macOS / desktop / Android share-sheet
  *   capture), and `'VIEW'` with auto-import ON: push the URLs through
  *   `window.OPEN_WITH_FILES` so `library/page.tsx::processOpenWithFiles`
- *   does a full ingest + cloud upload — the file lands in the library and
- *   syncs, which is what a "Send to Readest" share (and an opt-in "Open
- *   with" import) is meant to honour.
+ *   does a full local ingest. Enabled user-owned file providers converge it
+ *   on their next sync pass.
  */
 export function useOpenWithBooks() {
   const router = useRouter();

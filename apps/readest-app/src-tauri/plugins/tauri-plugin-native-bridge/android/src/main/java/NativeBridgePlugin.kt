@@ -130,16 +130,6 @@ class ShowLookupPopoverArgs {
 }
 
 @InvokeArg
-class FetchProductsRequestArgs {
-    val productIds: List<String>? = null
-}
-
-@InvokeArg
-class PurchaseProductRequestArgs {
-    val productId: String? = null
-}
-
-@InvokeArg
 class UpdateReadingWidgetBookArgs {
     var hash: String = ""
     var title: String = ""
@@ -175,25 +165,6 @@ class UpdateReadingWidgetRequestArgs {
     var tts: UpdateReadingWidgetTtsArgs? = null
 }
 
-data class ProductData(
-    val id: String,
-    val title: String,
-    val description: String,
-    val price: String,
-    val priceCurrencyCode: String?,
-    val priceAmountMicros: Long,
-    val productType: String
-)
-
-data class PurchaseData(
-    val productId: String,
-    val orderId: String,
-    val purchaseToken: String,
-    val purchaseDate: String,
-    val purchaseState: String,
-    val platform: String = "android"
-)
-
 interface KeyDownInterceptor {
     fun interceptVolumeKeys(enabled: Boolean)
     fun interceptBackKey(enabled: Boolean)
@@ -209,9 +180,6 @@ interface KeyDownInterceptor {
 class NativeBridgePlugin(private val activity: Activity): Plugin(activity) {
     private val implementation = NativeBridge()
     private var webViewRef: WebView? = null
-    private val billingManager by lazy {
-        BillingManager(activity)
-    }
     // Scope for offloading blocking @Command I/O (file copy, package
     // install, font scan, dictionary lookup) off the plugin command thread.
     // Cancelled in onDestroy so in-flight work can't resolve into — or leak —
@@ -1024,111 +992,6 @@ class NativeBridgePlugin(private val activity: Activity): Plugin(activity) {
         ambientLightListening = false
         sensorManager = null
         lastEmittedLux = Float.NaN
-    }
-
-    @Command
-    fun iap_is_available(invoke: Invoke) {
-        val isAvailable = billingManager.isBillingAvailable()
-        val result = JSObject()
-        result.put("available", isAvailable)
-        invoke.resolve(result)
-    }
-
-    @Command
-    fun iap_initialize(invoke: Invoke) {
-        billingManager.initialize { success ->
-            val result = JSObject()
-            result.put("success", success)
-            invoke.resolve(result)
-        }
-    }
-
-    @Command
-    fun iap_fetch_products(invoke: Invoke) {
-        try {
-            val args = invoke.parseArgs(FetchProductsRequestArgs::class.java)
-            val productIds = args.productIds ?: emptyList()
-            if (productIds.isEmpty()) {
-                invoke.reject("Product IDs list is empty")
-                return
-            }
-
-            billingManager.fetchProducts(productIds) { products ->
-                val result = JSObject()
-                val productsArray = JSArray()
-                for (product in products) {
-                    val productObject = JSObject().apply {
-                        put("id", product.id)
-                        put("title", product.title)
-                        put("description", product.description)
-                        put("price", product.price)
-                        put("priceCurrencyCode", product.priceCurrencyCode)
-                        put("priceAmountMicros", product.priceAmountMicros)
-                        put("productType", product.productType)
-                    }
-                    productsArray.put(productObject)
-                }
-                result.put("products", productsArray)
-                invoke.resolve(result)
-            }
-        } catch (e: Exception) {
-            invoke.reject("Failed to parse fetch products arguments: ${e.message}")
-        }
-    }
-
-    @Command
-    fun iap_purchase_product(invoke: Invoke) {
-        try {
-            val args = invoke.parseArgs(PurchaseProductRequestArgs::class.java)
-            val productId = args.productId ?: ""
-            if (productId.isEmpty()) {
-                invoke.reject("Product ID is empty")
-                return
-            }
-
-            billingManager.purchaseProduct(productId) { purchase ->
-                if (purchase != null) {
-                    val result = JSObject()
-                    val purchaseData = JSObject().apply {
-                        put("platform", purchase.platform)
-                        put("packageName", activity.packageName)
-                        put("productId", purchase.productId)
-                        put("orderId", purchase.orderId)
-                        put("purchaseToken", purchase.purchaseToken)
-                        put("purchaseDate", purchase.purchaseDate)
-                        put("purchaseState", purchase.purchaseState)
-                    }
-                    result.put("purchase", purchaseData)
-                    invoke.resolve(result)
-                } else {
-                    invoke.reject("Purchase failed or was cancelled")
-                }
-            }
-        } catch (e: Exception) {
-            invoke.reject("Failed to parse purchase arguments: ${e.message}")
-        }
-    }
-
-    @Command
-    fun iap_restore_purchases(invoke: Invoke) {
-        billingManager.restorePurchases { purchases ->
-            val result = JSObject()
-            val purchasesArray = JSArray()
-            for (purchase in purchases) {
-                val purchaseObject = JSObject().apply {
-                    put("platform", purchase.platform)
-                    put("packageName", activity.packageName)
-                    put("productId", purchase.productId)
-                    put("orderId", purchase.orderId)
-                    put("purchaseToken", purchase.purchaseToken)
-                    put("purchaseDate", purchase.purchaseDate)
-                    put("purchaseState", purchase.purchaseState)
-                }
-                purchasesArray.put(purchaseObject)
-            }
-            result.put("purchases", purchasesArray)
-            invoke.resolve(result)
-        }
     }
 
     @Command

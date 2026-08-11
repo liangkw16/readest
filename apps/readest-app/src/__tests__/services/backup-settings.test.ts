@@ -25,7 +25,6 @@ function makeSettings(overrides: Partial<SystemSettings> = {}): SystemSettings {
     localBooksDir: '/Users/me/Books',
     customRootDir: '/Users/me/readest',
     externalLibraryFolders: ['/Users/me/Duokan', '/Users/me/Calibre'],
-    keepLogin: true,
     screenBrightness: 0.7,
     autoScreenBrightness: false,
     lastOpenBooks: ['book-1', 'book-2'],
@@ -131,19 +130,6 @@ describe('sanitizeSettingsForBackup - blacklist', () => {
     expect(rec(out['googleDrive'])['lastSyncedAt']).toBeUndefined();
   });
 
-  it('strips readestCloud.disabledAt but keeps readestCloud.enabled', () => {
-    // disabledAt is device-local: it records when THIS device stopped
-    // writing native sync rows, and anchors the mixed-fleet probe. A value
-    // restored from another device's backup would corrupt that probe.
-    // enabled must survive restore, matching the other providers' `enabled`
-    // flags (see issue #5062).
-    const out = sanitizeSettingsForBackup(
-      makeSettings({ readestCloud: { enabled: false, disabledAt: 1234 } }),
-    );
-    expect(out.readestCloud?.disabledAt).toBeUndefined();
-    expect(out.readestCloud?.enabled).toBe(false);
-  });
-
   it('strips transient runtime state', () => {
     const out = rec(sanitizeSettingsForBackup(makeSettings()));
     expect(out['lastOpenBooks']).toBeUndefined();
@@ -158,13 +144,18 @@ describe('sanitizeSettingsForBackup - blacklist', () => {
 
   it('keeps preferences, layout and customization fields', () => {
     const out = sanitizeSettingsForBackup(makeSettings());
-    expect(out.keepLogin).toBe(true);
     expect(out.libraryViewMode).toBe('grid');
     expect(out.libraryColumns).toBe(4);
     expect(out.kosync.serverUrl).toBe('https://kosync.example');
     expect(out.kosync.deviceName).toBe('My Phone');
     expect(out.globalReadSettings.customThemes).toEqual([{ name: 'mytheme' }]);
     expect(out.globalViewSettings.userStylesheet).toBe('body { color: red }');
+  });
+
+  it('strips the retired official-account preference from legacy backups', () => {
+    const legacy = makeSettings() as SystemSettings & { keepLogin: boolean };
+    legacy.keepLogin = true;
+    expect(rec(sanitizeSettingsForBackup(legacy))['keepLogin']).toBeUndefined();
   });
 
   it('does not mutate the input settings', () => {
@@ -249,7 +240,7 @@ describe('mergeRestoredSettings', () => {
     expect(merged.localBooksDir).toBe('/device/Books');
     expect(merged.version).toBe(9);
     expect(merged.migrationVersion).toBe(7);
-    expect(merged.replicaDeviceId).toBe('device-uuid-aaa');
+    expect(rec(merged)['replicaDeviceId']).toBe('device-uuid-aaa');
   });
 
   it('deep-merges nested objects, keeping current-only nested keys', () => {

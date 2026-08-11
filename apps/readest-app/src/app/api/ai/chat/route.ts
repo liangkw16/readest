@@ -1,14 +1,8 @@
-import { validateUserAndToken } from '@/utils/access';
 import { streamText, createGateway } from 'ai';
 import type { ModelMessage } from 'ai';
 
 export async function POST(req: Request): Promise<Response> {
   try {
-    const { user, token } = await validateUserAndToken(req.headers.get('authorization'));
-    if (!user || !token) {
-      return Response.json({ error: 'Not authenticated' }, { status: 403 });
-    }
-
     const { messages, system, apiKey, model } = await req.json();
 
     if (!messages || !Array.isArray(messages)) {
@@ -18,7 +12,7 @@ export async function POST(req: Request): Promise<Response> {
       });
     }
 
-    const gatewayApiKey = apiKey || process.env['AI_GATEWAY_API_KEY'];
+    const gatewayApiKey = apiKey;
     if (!gatewayApiKey) {
       return new Response(JSON.stringify({ error: 'API key required' }), {
         status: 401,

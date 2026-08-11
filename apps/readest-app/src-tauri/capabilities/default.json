@@ -85,30 +85,6 @@
       "identifier": "http:default",
       "allow": [
         {
-          "url": "https://*.readest.com"
-        },
-        {
-          "url": "https://github.com/readest/*"
-        },
-        {
-          "url": "https://*.deepl.com"
-        },
-        {
-          "url": "https://*.cloudflarestorage.com"
-        },
-        {
-          "url": "https://edge.microsoft.com"
-        },
-        {
-          "url": "https://translate.toil.cc"
-        },
-        {
-          "url": "https://*.microsofttranslator.com"
-        },
-        {
-          "url": "https://translate.googleapis.com"
-        },
-        {
           "url": "http://*:*"
         },
         {

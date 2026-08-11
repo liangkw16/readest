@@ -31,7 +31,9 @@ vi.mock('@/hooks/useTranslation', () => ({
 }));
 
 vi.mock('@/hooks/useQuotaStats', () => ({
-  useQuotaStats: () => ({ userProfilePlan: 'free' }),
+  useQuotaStats: () => {
+    throw new Error('file sync must not read Readest account quotas');
+  },
 }));
 
 vi.mock('@/services/sync/cloudSyncProvider', () => ({

@@ -629,9 +629,9 @@ export class FileSyncEngine {
           hasLocalFile(book) &&
           knownNoSource.get(book.hash) !== (book.updatedAt ?? 0)));
 
-    // A book whose FILE is on the remote is cloud-backed, exactly like a book in
-    // Readest Cloud storage — and `book.uploadedAt` is the only thing the rest of
-    // the app reads to know that. Leaving it null for a provider-synced book made
+    // A book whose file is on the user's remote storage is backed up, and
+    // `book.uploadedAt` is the existing marker the rest of the app reads to know
+    // that. Leaving it null for a provider-synced book made
     // the whole library misread it as purely-local: it could never be re-downloaded
     // (`makeBookAvailable` gates on `uploadedAt`), the shelf offered Upload instead
     // of Download, and — the data loss in #5084 — once "Remove from Device Only"

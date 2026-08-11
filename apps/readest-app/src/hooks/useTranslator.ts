@@ -1,5 +1,4 @@
 import { useState, useCallback, useEffect } from 'react';
-import { useAuth } from '@/context/AuthContext';
 import {
   ErrorCodes,
   getTranslator,
@@ -14,14 +13,13 @@ import { getLocale } from '@/utils/misc';
 import { useTranslation } from './useTranslation';
 
 export function useTranslator({
-  provider = 'deepl',
+  provider = 'google',
   sourceLang = 'AUTO',
   targetLang = 'EN',
   enablePolishing = true,
   enablePreprocessing = true,
 }: UseTranslatorOptions = {}) {
   const _ = useTranslation();
-  const { token } = useAuth();
   const [loading, setLoading] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState(provider);
   const [translator, setTransltor] = useState(() => getTranslator(provider));
@@ -32,7 +30,7 @@ export function useTranslator({
   }, [provider, sourceLang, targetLang]);
 
   useEffect(() => {
-    const availableTranslators = getTranslators().filter((t) => isTranslatorAvailable(t, !!token));
+    const availableTranslators = getTranslators().filter((t) => isTranslatorAvailable(t, false));
     const selectedTranslator =
       availableTranslators.find((t) => t.name === provider) || availableTranslators[0]!;
     const selectedProviderName = selectedTranslator.name as TranslatorName;
@@ -98,7 +96,7 @@ export function useTranslator({
           textsNeedingTranslation,
           sourceLanguage,
           targetLanguage,
-          token,
+          null,
           useCache,
         );
 
@@ -145,19 +143,17 @@ export function useTranslator({
         if (err instanceof Error && err.message.includes(ErrorCodes.DAILY_QUOTA_EXCEEDED)) {
           eventDispatcher.dispatch('toast', {
             timeout: 5000,
-            message: _(
-              'Daily translation quota reached. Upgrade your plan to continue using AI translations.',
-            ),
+            message: _('Translation quota reached for the selected provider.'),
             type: 'error',
           });
-          setSelectedProvider('azure');
+          setSelectedProvider('google');
         }
         setLoading(false);
         throw err instanceof Error ? err : new Error(String(err));
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [selectedProvider, sourceLang, targetLang, translator, token],
+    [selectedProvider, sourceLang, targetLang, translator],
   );
 
   return {

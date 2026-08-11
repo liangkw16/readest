@@ -26,10 +26,6 @@ vi.mock('@/hooks/useTranslation', () => ({
   useTranslation: () => (s: string) => s,
 }));
 
-vi.mock('@/context/AuthContext', () => ({
-  useAuth: () => ({ token: null }),
-}));
-
 vi.mock('@/context/EnvContext', () => ({
   useEnv: () => ({ envConfig: {} }),
 }));
@@ -50,7 +46,7 @@ const viewSettings = () =>
   ({
     uiLanguage: '',
     translationEnabled: state.translationEnabled,
-    translationProvider: 'deepl',
+    translationProvider: 'google',
     translateTargetLang: 'en',
     showTranslateSource: true,
     ttsReadAloudText: 'both',

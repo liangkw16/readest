@@ -29,7 +29,6 @@ function makeSettings(overrides: Partial<SystemSettings> = {}): SystemSettings {
   return {
     version: 1,
     localBooksDir: '/books',
-    keepLogin: false,
     alwaysOnTop: false,
     openBookInNewWindow: false,
     autoCheckUpdates: true,
@@ -42,7 +41,6 @@ function makeSettings(overrides: Partial<SystemSettings> = {}): SystemSettings {
     autoImportBooksOnOpen: false,
     savedBookCoverForLockScreen: '',
     savedBookCoverForLockScreenPath: '',
-    telemetryEnabled: false,
     discordRichPresenceEnabled: false,
     libraryViewMode: 'grid',
     librarySortBy: 'updated',

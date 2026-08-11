@@ -17,7 +17,7 @@ const makeLocal = (overrides: Partial<SystemSettings> = {}): SystemSettings =>
   }) as SystemSettings;
 
 describe('mergeSyncedGlobalSettings cloud sync provider flags', () => {
-  test('adopts enabled flags and providerSelectedAt, preserving credentials and cursors', () => {
+  test('adopts enabled flags while preserving credentials and cursors', () => {
     const local = makeLocal({
       webdav: {
         enabled: false,
@@ -33,20 +33,18 @@ describe('mergeSyncedGlobalSettings cloud sync provider flags', () => {
       globalViewSettings: local.globalViewSettings,
       globalReadSettings: local.globalReadSettings,
       cloudSyncProviders: {
-        webdav: { enabled: true, providerSelectedAt: 999 },
+        webdav: { enabled: true },
         googleDrive: { enabled: false },
-        onedrive: { enabled: true, providerSelectedAt: 888 },
+        onedrive: { enabled: true },
       },
     });
     expect(merged.webdav.enabled).toBe(true);
-    expect(merged.webdav.providerSelectedAt).toBe(999);
     expect(merged.webdav.password).toBe('secret');
     expect(merged.webdav.deviceId).toBe('d1');
     expect(merged.webdav.lastSyncedAt).toBe(42);
     expect(merged.googleDrive.enabled).toBe(false);
     expect(merged.googleDrive.accountLabel).toBe('a@b');
     expect(merged.onedrive.enabled).toBe(true);
-    expect(merged.onedrive.providerSelectedAt).toBe(888);
     expect(merged.onedrive.accountLabel).toBe('c@d');
   });
 

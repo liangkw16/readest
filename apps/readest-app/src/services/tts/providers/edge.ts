@@ -21,9 +21,8 @@ export class EdgeSpeechProvider implements SpeechProvider {
   #tts: EdgeSpeechTTS | null = null;
 
   // The wss transport is free but intermittently blocked; the https fallback
-  // goes through the authenticated proxy route. The Edge client owns the
-  // fallback policy (auth state lives there); the provider just takes the
-  // protocol to probe with.
+  // goes through the same-origin proxy route. The Edge client owns the
+  // platform fallback policy; the provider just takes the protocol to probe.
   async init(protocol: EDGE_TTS_PROTOCOL = 'wss'): Promise<boolean> {
     this.#tts = new EdgeSpeechTTS(protocol);
     try {

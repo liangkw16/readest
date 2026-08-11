@@ -9,7 +9,6 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"/>
-    <uses-permission android:name="com.android.vending.BILLING" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>
@@ -124,23 +123,6 @@
                 <data android:mimeType="*/*"/>
             </intent-filter>
 
-            <intent-filter android:label="oauth">
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="readest" android:host="auth-callback" />
-            </intent-filter>
-
-            <!-- Google Drive OAuth reverse-DNS redirect (iOS-type client). Mirrors
-                 the deep-link.mobile scheme in tauri.conf.json so the redirect
-                 routes back even if the auto-generated section is regenerated. -->
-            <intent-filter android:label="gdrive-oauth">
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="com.googleusercontent.apps.209390247301-ctpmep68ppfa56r1b8tr35e4qi4p60kq" />
-            </intent-filter>
-
             <!-- OneDrive OAuth redirect. Mirrors the deep-link.mobile scheme in
                  tauri.conf.json so the redirect routes back even if the
                  auto-generated section is regenerated. -->
@@ -158,19 +140,6 @@
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
             <!-- DEEP LINK PLUGIN. AUTO-GENERATED. DO NOT REMOVE. -->
-            <intent-filter android:autoVerify="true" >
-                <action android:name="android.intent.action.VIEW" />
-                <!-- ChromeOS ARC++ uses a different action for deep links -->
-                <action android:name="org.chromium.arc.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="https" />
-                <data android:host="web.readest.com" />
-                
-                
-                
-                
-            </intent-filter>
             <intent-filter >
                 <action android:name="android.intent.action.VIEW" />
                 <!-- ChromeOS ARC++ uses a different action for deep links -->
@@ -191,19 +160,6 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="readest-onedrive" />
-                
-                
-                
-                
-                
-            </intent-filter>
-            <intent-filter >
-                <action android:name="android.intent.action.VIEW" />
-                <!-- ChromeOS ARC++ uses a different action for deep links -->
-                <action android:name="org.chromium.arc.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="com.googleusercontent.apps.209390247301-ctpmep68ppfa56r1b8tr35e4qi4p60kq" />
                 
                 
                 

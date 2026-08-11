@@ -77,14 +77,7 @@ async function withRequestLimit<T>(task: () => Promise<T>): Promise<T> {
   }
 }
 
-const requireWebToken = (token?: string | null) => {
-  if (!token) {
-    throw new Error('azure translate requires authentication in web builds');
-  }
-  return token;
-};
-
-async function fetchAuthParams(token?: string | null): Promise<BingAuthParams> {
+async function fetchAuthParams(): Promise<BingAuthParams> {
   if (isTauriAppPlatform()) {
     const response = await withRequestLimit(() =>
       tauriFetch(BING_TRANSLATOR_URL, {
@@ -103,7 +96,6 @@ async function fetchAuthParams(token?: string | null): Promise<BingAuthParams> {
   const response = await withRequestLimit(() =>
     window.fetch(`${PROXY_URL}?endpoint=auth`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${requireWebToken(token)}` },
     }),
   );
   if (!response.ok) {
@@ -116,11 +108,11 @@ async function fetchAuthParams(token?: string | null): Promise<BingAuthParams> {
   return data;
 }
 
-async function getAuthParams(token?: string | null): Promise<BingAuthParams> {
+async function getAuthParams(): Promise<BingAuthParams> {
   if (cachedAuth && cachedAuth.expiresAt > Date.now()) {
     return cachedAuth;
   }
-  authPromise ??= fetchAuthParams(token)
+  authPromise ??= fetchAuthParams()
     .then((auth) => {
       cachedAuth = auth;
       return auth;
@@ -135,10 +127,9 @@ async function translateChunk(
   chunk: string,
   fromLang: string,
   toLang: string,
-  token?: string | null,
   retryAuth = true,
 ): Promise<string> {
-  const auth = await getAuthParams(token);
+  const auth = await getAuthParams();
   const body = new URLSearchParams({
     fromLang,
     text: chunk,
@@ -159,7 +150,6 @@ async function translateChunk(
           method: 'POST',
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
-            Authorization: `Bearer ${requireWebToken(token)}`,
           },
           body: body.toString(),
         }),
@@ -177,7 +167,7 @@ async function translateChunk(
       // Drop the params this attempt used so the retry scrapes a fresh page,
       // without discarding params another call may have just refreshed.
       if (cachedAuth?.token === auth.token) cachedAuth = null;
-      return translateChunk(chunk, fromLang, toLang, token, false);
+      return translateChunk(chunk, fromLang, toLang, false);
     }
     throw new Error(`bing translate failed with status ${statusCode}`);
   }
@@ -191,9 +181,6 @@ async function translateChunk(
 export const azureProvider: TranslationProvider = {
   name: 'azure',
   label: _('Azure Translator'),
-  get authRequired() {
-    return !isTauriAppPlatform();
-  },
   // Verified against the live endpoint: `The <b>quick</b> brown fox …` comes
   // back as `那只<b>敏捷</b>的棕色狐狸 …`, with the tag on the matching word
   // despite the reordering, with or without an explicit textType=html.
@@ -202,11 +189,9 @@ export const azureProvider: TranslationProvider = {
     text: string[],
     sourceLang: string,
     targetLang: string,
-    token?: string | null,
+    _token?: string | null,
   ): Promise<string[]> => {
     if (!text.length) return [];
-    if (!isTauriAppPlatform()) requireWebToken(token);
-
     // Bing only accepts its own language list — bare subtags plus script
     // variants like zh-Hans — and answers `statusCode: 400` for maximized
     // culture codes such as en-US or de-DE (the retired api-edge endpoint
@@ -229,7 +214,7 @@ export const azureProvider: TranslationProvider = {
         // go out as several chunks and are stitched back together.
         const translated = await Promise.all(
           splitTextIntoChunks(line, MAX_CHARS_PER_REQUEST).map((chunk) =>
-            translateChunk(chunk, fromLang, toLang, token),
+            translateChunk(chunk, fromLang, toLang),
           ),
         );
         results[index] = translated.join('');

@@ -15,7 +15,6 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('@/context/EnvContext', () => ({ useEnv: () => ({ appService: {} }) }));
-vi.mock('@/context/AuthContext', () => ({ useAuth: () => ({ user: null }) }));
 vi.mock('@/store/readerProgressStore', () => ({
   useBookProgress: () => mocks.progress,
   getBookProgress: () => mocks.progress,
@@ -26,12 +25,6 @@ vi.mock('@/store/bookDataStore', () => ({
 vi.mock('@/services/statistics/statisticsDb', () => ({
   StatisticsDb: { open: mocks.open },
 }));
-vi.mock('@/services/statistics/statsSync', () => ({
-  pushStats: vi.fn(),
-  pullStats: vi.fn(),
-}));
-vi.mock('@/services/sync/syncCategories', () => ({ isSyncCategoryEnabled: () => false }));
-vi.mock('@/libs/sync', () => ({ SyncClient: class {} }));
 vi.mock('@/services/tts/TTSSessionManager', () => ({
   ttsSessionManager: {
     getPlaybackState: () => mocks.playbackState,

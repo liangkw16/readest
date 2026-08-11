@@ -18,17 +18,11 @@ import { createOneDriveTokenPersistence } from './onedriveTokenStore';
 import { webOneDriveTokenPersistence } from './webAuthCodeFlow';
 
 /**
- * Official Readest Microsoft (Azure) app registration client id, baked into the
- * build so OneDrive sync works out of the box. One public client serves every
- * platform (native custom-scheme redirect + web SPA redirect). Not a secret — it
- * ships inside the app binary, like the Google client id. A forker overrides it
- * via `NEXT_PUBLIC_MICROSOFT_CLIENT_ID` at build (and must register their own
- * redirect URIs on that client).
+ * User-supplied Microsoft app registration client id. It is absent by default,
+ * so the fork never relies on the upstream project's OAuth registration.
  */
-const OFFICIAL_MICROSOFT_CLIENT_ID = '99ebebbc-a44b-40fc-b418-aade0f28900c';
-
 export const getMicrosoftClientId = (): string | undefined =>
-  process.env['NEXT_PUBLIC_MICROSOFT_CLIENT_ID'] || OFFICIAL_MICROSOFT_CLIENT_ID || undefined;
+  process.env['NEXT_PUBLIC_MICROSOFT_CLIENT_ID'] || undefined;
 
 /** Native `fetch` bypasses the WebView CSP for the graph.microsoft.com host. */
 const resolveFetch = (): FetchFn =>

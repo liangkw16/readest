@@ -6,7 +6,7 @@ vi.mock('@/services/sync/replicaPublish', () => ({
 }));
 
 import { useCustomDictionaryStore, findDictionaryByContentId } from '@/store/customDictionaryStore';
-import { enableReplicaAutoPersist } from '@/services/sync/replicaPersist';
+import { enableLocalStoreAutoPersist } from '@/services/localPersistEnv';
 import { BUILTIN_WEB_SEARCH_IDS } from '@/services/dictionaries/types';
 import { publishReplicaUpsert } from '@/services/sync/replicaPublish';
 import { useSettingsStore } from '@/store/settingsStore';
@@ -232,7 +232,7 @@ describe('customDictionaryStore — web search CRUD', () => {
         .spyOn(useSettingsStore.getState(), 'saveSettings')
         .mockResolvedValue(undefined);
       const fakeEnv = { name: 'test-env' } as unknown as EnvConfigType;
-      enableReplicaAutoPersist(fakeEnv);
+      enableLocalStoreAutoPersist(fakeEnv);
       return { setSettings, saveSettings, fakeEnv };
     };
 
@@ -334,8 +334,7 @@ describe('customDictionaryStore — web search CRUD', () => {
 
     it('does not persist when env has not been registered', async () => {
       // Wipe the registry by re-enabling with null-equivalent. We expose
-      // enableReplicaAutoPersist with a nullable arg for test isolation.
-      enableReplicaAutoPersist(null);
+      enableLocalStoreAutoPersist(null);
       const setSettings = vi.spyOn(useSettingsStore.getState(), 'setSettings');
       const saveSettings = vi
         .spyOn(useSettingsStore.getState(), 'saveSettings')

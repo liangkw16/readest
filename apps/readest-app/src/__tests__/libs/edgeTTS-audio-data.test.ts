@@ -1,13 +1,7 @@
-import { beforeEach, describe, expect, test, vi } from 'vitest';
-
-const fetchWithAuthMock = vi.fn();
-
-vi.mock('@/utils/fetch', () => ({
-  fetchWithAuth: (...args: unknown[]) => fetchWithAuthMock(...args),
-}));
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 vi.mock('@/services/environment', () => ({
-  getAPIBaseUrl: () => 'http://api.test',
+  getAPIBaseUrl: () => '/api',
   isTauriAppPlatform: () => false,
 }));
 
@@ -37,6 +31,8 @@ const makeResponse = () =>
     },
   });
 
+const fetchMock = vi.fn();
+
 describe('hashTTSPayload', () => {
   test('is stable for equal payload content', () => {
     expect(hashTTSPayload(makePayload('abc'))).toBe(hashTTSPayload(makePayload('abc')));
@@ -52,8 +48,13 @@ describe('hashTTSPayload', () => {
 
 describe('createAudioData', () => {
   beforeEach(() => {
-    fetchWithAuthMock.mockReset();
-    fetchWithAuthMock.mockImplementation(async () => makeResponse());
+    fetchMock.mockReset();
+    fetchMock.mockImplementation(async () => makeResponse());
+    vi.stubGlobal('fetch', fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   test('returns audio bytes and boundaries from the network on first call', async () => {
@@ -62,7 +63,11 @@ describe('createAudioData', () => {
     expect(new Uint8Array(data)).toEqual(new Uint8Array([1, 2, 3, 4]));
     expect(boundaries).toHaveLength(1);
     expect(boundaries[0]!.text).toBe('hello');
-    expect(fetchWithAuthMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]![0]).toBe('/api/tts/edge');
+    expect(
+      new Headers((fetchMock.mock.calls[0]![1] as RequestInit).headers).has('authorization'),
+    ).toBe(false);
   });
 
   test('serves the second call from cache with a fresh, non-detached buffer', async () => {
@@ -70,7 +75,7 @@ describe('createAudioData', () => {
     const payload = makePayload('cache hit text');
     const first = await tts.createAudioData(payload);
     const second = await tts.createAudioData(payload);
-    expect(fetchWithAuthMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
     // WebKit's decodeAudioData detaches its input; every call must get its
     // own copy so replay from cache cannot hand out a detached buffer.
     expect(second.data).not.toBe(first.data);
@@ -81,7 +86,7 @@ describe('createAudioData', () => {
 
   test('deduplicates concurrent in-flight fetches for the same payload', async () => {
     let release: (() => void) | undefined;
-    fetchWithAuthMock.mockImplementation(
+    fetchMock.mockImplementation(
       () =>
         new Promise((resolve) => {
           release = () => resolve(makeResponse());
@@ -94,12 +99,12 @@ describe('createAudioData', () => {
     await Promise.resolve();
     release!();
     const [r1, r2] = await Promise.all([p1, p2]);
-    expect(fetchWithAuthMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(new Uint8Array(r1.data)).toEqual(new Uint8Array(r2.data));
   });
 
   test('a failed fetch is not cached; the next call retries', async () => {
-    fetchWithAuthMock.mockImplementationOnce(async () => {
+    fetchMock.mockImplementationOnce(async () => {
       throw new Error('network down');
     });
     const tts = new EdgeSpeechTTS('https');
@@ -107,6 +112,6 @@ describe('createAudioData', () => {
     await expect(tts.createAudioData(payload)).rejects.toThrow('network down');
     const { data } = await tts.createAudioData(payload);
     expect(data.byteLength).toBe(4);
-    expect(fetchWithAuthMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });

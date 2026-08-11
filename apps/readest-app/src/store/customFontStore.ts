@@ -8,7 +8,7 @@ import {
   mountCustomFont,
 } from '@/styles/fonts';
 import { useSettingsStore } from './settingsStore';
-import { getReplicaPersistEnv } from '@/services/sync/replicaPersist';
+import { getLocalPersistEnv } from '@/services/localPersistEnv';
 import { publishReplicaDelete, publishReplicaUpsert } from '@/services/sync/replicaPublish';
 import { FONT_KIND } from '@/services/sync/adapters/font';
 import { computeFontContentId } from '@/services/fontService';
@@ -185,7 +185,7 @@ export const useCustomFontStore = create<FontStoreState>((set, get) => ({
           : [...state.fonts, font];
       return { fonts };
     });
-    const env = getReplicaPersistEnv();
+    const env = getLocalPersistEnv();
     if (env) void get().saveCustomFonts(env);
   },
 
@@ -198,7 +198,7 @@ export const useCustomFontStore = create<FontStoreState>((set, get) => ({
       ),
     }));
     if (target.blobUrl) URL.revokeObjectURL(target.blobUrl);
-    const env = getReplicaPersistEnv();
+    const env = getLocalPersistEnv();
     if (env) void get().saveCustomFonts(env);
   },
 
@@ -208,7 +208,7 @@ export const useCustomFontStore = create<FontStoreState>((set, get) => ({
         f.contentId === contentId ? { ...f, unavailable: undefined } : f,
       ),
     }));
-    const env = getReplicaPersistEnv();
+    const env = getLocalPersistEnv();
     if (env) void get().saveCustomFonts(env);
   },
 
@@ -221,7 +221,7 @@ export const useCustomFontStore = create<FontStoreState>((set, get) => ({
       if (typeof document !== 'undefined') {
         mountCustomFont(document, loaded);
       }
-      const env = getReplicaPersistEnv();
+      const env = getLocalPersistEnv();
       if (env) await get().saveCustomFonts(env);
     } catch (err) {
       console.warn('activateFontByContentId failed', contentId, err);

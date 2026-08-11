@@ -1,5 +1,4 @@
 import { TranslationProvider } from '../types';
-import { deeplProvider } from './deepl';
 import { azureProvider } from './azure';
 import { googleProvider } from './google';
 import { yandexProvider } from './yandex';
@@ -16,13 +15,11 @@ function createTranslator<T extends string>(
   return implementation as TranslationProvider & { name: T };
 }
 
-const deeplTranslator = createTranslator('deepl', deeplProvider);
 const azureTranslator = createTranslator('azure', azureProvider);
 const googleTranslator = createTranslator('google', googleProvider);
 const yandexTranslator = createTranslator('yandex', yandexProvider);
 
 const availableTranslators = [
-  deeplTranslator,
   azureTranslator,
   googleTranslator,
   yandexTranslator,
@@ -73,7 +70,7 @@ export const getTranslatorDisplayLabel = (
     return `${translator.label}`;
   }
   if (translator.authRequired && !hasToken) {
-    return `${translator.label} (${_('Login Required')})`;
+    return `${translator.label} (${_('Desktop App Only')})`;
   }
   if (translator.quotaExceeded) {
     return `${translator.label} (${_('Quota Exceeded')})`;

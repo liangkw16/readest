@@ -15,7 +15,7 @@ import type { TTSAudioContext } from './WebAudioPlayer';
 // trip synthesizing "test") and never spins up a full speaking session — it
 // calls EdgeSpeechTTS directly (whose static MP3 cache makes repeat words
 // instant) and schedules one chunk on a dedicated Web Audio context. Edge is
-// tried first while online (wss, then the authenticated https proxy); offline
+// tried first while online (wss, then the same-origin https proxy); offline
 // requests and Edge failures use the platform speech client. See issue #4876.
 
 const EDGE_TTS_NAME = 'edge-tts';
@@ -84,11 +84,10 @@ export const cancelWordPronounce = (): void => {
   stopFallback();
 };
 
-// Edge audio bytes: direct wss first; on failure the authenticated https proxy
-// (the reader's own fallback for browsers that block Bing). The proxy throws
-// "Not authenticated" when logged out, which propagates to the speech fallback.
-// On Tauri the native wss transport is the only Edge path — never retry via
-// the proxy (a cross-origin /api/tts/edge request, e.g. fired when offline).
+// Edge audio bytes: direct wss first; on failure the same-origin https proxy
+// (the reader's own fallback for browsers that block Bing). On Tauri the
+// native wss transport is the only Edge path — never retry via the proxy (a
+// relative /api request is not a configured remote service in a native shell).
 const fetchEdgeAudio = async (payload: EdgeTTSPayload): Promise<ArrayBuffer> => {
   try {
     return (await edgeWss.createAudioData(payload)).data;

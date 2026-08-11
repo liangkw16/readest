@@ -1,12 +1,12 @@
 import type { SystemSettings } from '@/types/settings';
 import type { EnvConfigType } from '@/services/environment';
-import type { CloudSyncProviderKind } from '@/services/sync/cloudSyncProvider';
+import type { FileSyncBackendKind } from '@/services/sync/file/providerRegistry';
 import { settingsKeyForBackend } from '@/services/sync/cloudSyncProvider';
 import { useSettingsStore } from '@/store/settingsStore';
 import { broadcastGlobalSettings } from '@/utils/settingsSync';
 
 /**
- * Turn ONE cloud sync provider on or off, leaving every other provider exactly
+ * Turn one user-owned file-sync backend on or off, leaving every other backend exactly
  * as it was (#5062). Providers are an independent set: any subset may sync
  * the library at once.
  *
@@ -14,29 +14,17 @@ import { broadcastGlobalSettings } from '@/utils/settingsSync';
  * left untouched when switching a provider off, so re-enabling it later needs
  * no re-entry; only an explicit Disconnect tears the config down.
  *
- * Switching a third-party provider ON (off -> on edge only) also turns its
- * `syncBooks` on and stamps `providerSelectedAt`: checking a provider means
- * "mirror my library here". An explicit `syncBooks` opt-out while the provider
- * stays on is respected — a redundant re-activation changes nothing.
+ * Switching a provider ON (off -> on edge only) also turns its `syncBooks` on:
+ * checking a provider means "mirror my library here". An explicit `syncBooks`
+ * opt-out while the provider stays on is respected — a redundant re-activation
+ * changes nothing.
  *
- * Switching Readest Cloud OFF stamps `readestCloud.disabledAt`, the anchor for
- * mixed-fleet detection ("when did this device stop writing native rows").
  */
 export const withCloudProviderEnabled = (
   settings: SystemSettings,
-  kind: CloudSyncProviderKind,
+  kind: FileSyncBackendKind,
   enabled: boolean,
 ): SystemSettings => {
-  if (kind === 'readest') {
-    return {
-      ...settings,
-      readestCloud: {
-        ...settings.readestCloud,
-        enabled,
-        disabledAt: enabled ? undefined : Date.now(),
-      },
-    };
-  }
   const key = settingsKeyForBackend(kind);
   const slice = settings[key];
   const activating = enabled && !slice?.enabled;
@@ -45,7 +33,7 @@ export const withCloudProviderEnabled = (
     [key]: {
       ...slice,
       enabled,
-      ...(activating ? { syncBooks: true, providerSelectedAt: Date.now() } : {}),
+      ...(activating ? { syncBooks: true } : {}),
     },
   };
 };
@@ -65,7 +53,7 @@ export const withCloudProviderEnabled = (
  */
 export const persistCloudProviderEnabled = async (
   envConfig: EnvConfigType,
-  kind: CloudSyncProviderKind,
+  kind: FileSyncBackendKind,
   enabled: boolean,
   mutate: (settings: SystemSettings) => SystemSettings = (s) => s,
 ): Promise<SystemSettings> => {

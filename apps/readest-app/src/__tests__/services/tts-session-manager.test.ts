@@ -24,7 +24,7 @@ vi.mock('@/store/bookDataStore', () => ({
 vi.mock('@/store/settingsStore', () => ({
   useSettingsStore: { getState: () => ({ settings: { fake: true } }) },
 }));
-// getAPIBaseUrl is reached through TtsStatsRecorder -> @/libs/sync.
+// TtsStatsRecorder asks the environment for the current app service.
 vi.mock('@/services/environment', () => ({
   default: { env: 'test' },
   getAPIBaseUrl: () => 'https://example.invalid',

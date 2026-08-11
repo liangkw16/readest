@@ -1,7 +1,7 @@
 name: PR checks
 on:
   push:
-    branches: [main]
+    branches: [main, liangkw16]
   pull_request:
     branches: [main]
 permissions:
@@ -191,9 +191,7 @@ jobs:
         working-directory: apps/readest-app
         run: pnpm test:browser
 
-  # Browser-extension tests + build always run. The koplugin lint + Lua tests
-  # (and the ~45s LuaJIT/busted install they need) only run when the koplugin
-  # sources changed, so most PRs skip that cost entirely.
+  # KOReader plugin checks run only when its sources changed.
   test_extensions:
     runs-on: ubuntu-latest
     # pull-requests: read lets dorny/paths-filter list a PR's changed files
@@ -227,14 +225,6 @@ jobs:
         working-directory: apps/readest-app
         run: |
           pnpm install --frozen-lockfile --prefer-offline && pnpm setup-vendors
-
-      - name: run extension tests
-        working-directory: apps/readest-app
-        run: pnpm test:extension
-
-      - name: build browser extension
-        working-directory: apps/readest-app
-        run: pnpm build-browser-ext
 
       - name: cache apt packages
         if: steps.changes.outputs.koplugin == 'true'

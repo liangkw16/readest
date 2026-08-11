@@ -60,7 +60,9 @@ vi.mock('@/services/sync/cloudSyncProvider', () => ({
 }));
 
 vi.mock('@/hooks/useQuotaStats', () => ({
-  useQuotaStats: () => ({ userProfilePlan: 'pro' }),
+  useQuotaStats: () => {
+    throw new Error('file sync must not read Readest account quotas');
+  },
 }));
 
 vi.mock('@/hooks/useTranslation', () => ({
@@ -239,6 +241,31 @@ describe('useFileSync across multiple backends (#5062)', () => {
     renderHook(() => useFileSync('h1-view1'));
 
     await waitFor(() => expect(pushBookConfig).toHaveBeenCalledTimes(2));
+  });
+
+  test('sync-book-progress converges the matching book by pulling before pushing', async () => {
+    renderHook(() => useFileSync('h1-view1'));
+
+    // Let the natural open-book pull/push settle, then isolate the manual event.
+    await waitFor(() => expect(pushBookConfig).toHaveBeenCalledTimes(2));
+    pullBookConfig.mockClear();
+    pushBookConfig.mockClear();
+
+    await act(async () => {
+      await eventDispatcher.dispatch('sync-book-progress', { bookKey: 'other-view' });
+    });
+    expect(pullBookConfig).not.toHaveBeenCalled();
+    expect(pushBookConfig).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await eventDispatcher.dispatch('sync-book-progress', { bookKey: 'h1-view1' });
+    });
+
+    expect(pullBookConfig).toHaveBeenCalledTimes(2);
+    expect(pushBookConfig).toHaveBeenCalledTimes(2);
+    expect(Math.max(...pullBookConfig.mock.invocationCallOrder)).toBeLessThan(
+      Math.min(...pushBookConfig.mock.invocationCallOrder),
+    );
   });
 });
 

@@ -24,30 +24,22 @@ import type { SystemSettings } from '@/types/settings';
 export const SETTINGS_SYNC_EVENT = 'global-settings-window-sync';
 
 /**
- * Minimal cloud-sync provider selection payload. ONLY the enabled flags
- * plus the selection timestamp — never credentials (`webdav.password`
+ * Minimal cloud-sync provider selection payload. ONLY the enabled flags —
+ * never credentials (`webdav.password`
  * must not ride window events) and never `lastSyncedAt` (the file-sync
  * engine writes it after every push; if whole slices were broadcast, a
  * reader window's routine cursor save interleaving with a provider
  * switch could win and silently flip the selection back).
  */
 export interface CloudSyncProviderFlags {
-  webdav: { enabled: boolean; providerSelectedAt?: number };
-  googleDrive: { enabled: boolean; providerSelectedAt?: number };
+  webdav: { enabled: boolean };
+  googleDrive: { enabled: boolean };
   /** Optional: absent on payloads from pre-S3 windows (treated as unchanged). */
-  s3?: { enabled: boolean; providerSelectedAt?: number };
+  s3?: { enabled: boolean };
   /** Optional: absent on payloads from pre-OneDrive windows (treated as unchanged). */
-  onedrive?: { enabled: boolean; providerSelectedAt?: number };
+  onedrive?: { enabled: boolean };
   /** Optional: absent on payloads from pre-iCloud windows (treated as unchanged). */
-  icloud?: { enabled: boolean; providerSelectedAt?: number };
-  /**
-   * Optional in two senses: absent on payloads from pre-#5062 windows, and
-   * absent when the source window has never had the slice written. `enabled`
-   * is itself optional because `undefined` is meaningful there (it means
-   * "derive from the third-party flags") — coercing it to `false` would
-   * silently switch Readest Cloud off on the receiver.
-   */
-  readestCloud?: { enabled?: boolean; disabledAt?: number };
+  icloud?: { enabled: boolean };
 }
 
 export interface SettingsSyncPayload {
@@ -81,22 +73,22 @@ export const mergeSyncedGlobalSettings = (
     globalReadSettings: payload.globalReadSettings,
   };
   if (payload.cloudSyncProviders) {
-    merged.webdav = { ...local.webdav, ...payload.cloudSyncProviders.webdav };
-    merged.googleDrive = { ...local.googleDrive, ...payload.cloudSyncProviders.googleDrive };
+    merged.webdav = { ...local.webdav, enabled: payload.cloudSyncProviders.webdav.enabled };
+    merged.googleDrive = {
+      ...local.googleDrive,
+      enabled: payload.cloudSyncProviders.googleDrive.enabled,
+    };
     if (payload.cloudSyncProviders.s3) {
-      merged.s3 = { ...local.s3, ...payload.cloudSyncProviders.s3 };
+      merged.s3 = { ...local.s3, enabled: payload.cloudSyncProviders.s3.enabled };
     }
     if (payload.cloudSyncProviders.onedrive) {
-      merged.onedrive = { ...local.onedrive, ...payload.cloudSyncProviders.onedrive };
+      merged.onedrive = {
+        ...local.onedrive,
+        enabled: payload.cloudSyncProviders.onedrive.enabled,
+      };
     }
     if (payload.cloudSyncProviders.icloud) {
-      merged.icloud = { ...local.icloud, ...payload.cloudSyncProviders.icloud };
-    }
-    if (payload.cloudSyncProviders.readestCloud) {
-      merged.readestCloud = {
-        ...local.readestCloud,
-        ...payload.cloudSyncProviders.readestCloud,
-      };
+      merged.icloud = { ...local.icloud, enabled: payload.cloudSyncProviders.icloud.enabled };
     }
   }
   return merged;
@@ -122,31 +114,20 @@ export const broadcastGlobalSettings = async (
       payload.cloudSyncProviders = {
         webdav: {
           enabled: !!settings.webdav?.enabled,
-          providerSelectedAt: settings.webdav?.providerSelectedAt,
         },
         googleDrive: {
           enabled: !!settings.googleDrive?.enabled,
-          providerSelectedAt: settings.googleDrive?.providerSelectedAt,
         },
         s3: {
           enabled: !!settings.s3?.enabled,
-          providerSelectedAt: settings.s3?.providerSelectedAt,
         },
         onedrive: {
           enabled: !!settings.onedrive?.enabled,
-          providerSelectedAt: settings.onedrive?.providerSelectedAt,
         },
         icloud: {
           enabled: !!settings.icloud?.enabled,
-          providerSelectedAt: settings.icloud?.providerSelectedAt,
         },
       };
-      if (settings.readestCloud) {
-        payload.cloudSyncProviders.readestCloud = {
-          enabled: settings.readestCloud.enabled,
-          disabledAt: settings.readestCloud.disabledAt,
-        };
-      }
     }
     await emit(SETTINGS_SYNC_EVENT, payload);
   } catch (err) {

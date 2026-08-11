@@ -21,12 +21,12 @@
  *    Drive's md5Checksum.
  *
  * Signing is SigV4 via `aws4fetch` (already a dependency; the server-side
- * `utils/r2.ts` uses the same client). Requests are signed with
+ * Requests are signed with
  * `AwsClient.sign()` and dispatched through an injected fetch — the platform
  * fetch on web, the Tauri HTTP plugin on native — so the provider stays
  * unit-testable against a mocked wire, like the Drive provider. Streaming
  * upload/download (Tauri only) hand a presigned query URL (`signQuery`) to
- * the native transfer plugin, the `utils/r2.ts` presign pattern.
+ * the native transfer plugin.
  *
  * Every HTTP failure is translated into the engine's neutral
  * {@link FileSyncError}; 429/5xx and thrown transports are retried with

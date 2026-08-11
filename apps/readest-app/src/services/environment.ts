@@ -1,5 +1,4 @@
 import { AppService } from '@/types/system';
-import { READEST_NODE_BASE_URL, READEST_WEB_BASE_URL } from './constants';
 import { getRuntimeConfig } from './runtimeConfig';
 
 declare global {
@@ -16,9 +15,12 @@ export const getBaseUrl = () =>
   getRuntimeConfig()?.apiBaseUrl ??
   process.env['API_BASE_URL'] ??
   process.env['NEXT_PUBLIC_API_BASE_URL'] ??
-  READEST_WEB_BASE_URL;
+  '';
 export const getNodeBaseUrl = () =>
-  process.env['NEXT_PUBLIC_NODE_BASE_URL'] ?? READEST_NODE_BASE_URL;
+  getRuntimeConfig()?.nodeBaseUrl ??
+  process.env['NODE_BASE_URL'] ??
+  process.env['NEXT_PUBLIC_NODE_BASE_URL'] ??
+  '';
 
 export const isMacPlatform = () =>
   typeof window !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.platform);
@@ -29,7 +31,8 @@ const isWebDevMode = () => process.env['NODE_ENV'] === 'development' && isWebApp
 
 // Dev API only in development mode and web platform
 // with command `pnpm dev-web`
-// for production build or tauri app use the production Web API
+// Production and native builds use an explicitly configured base when present;
+// without one, the relative route stays same-origin and fails closed in native shells.
 export const getAPIBaseUrl = () => (isWebDevMode() ? '/api' : `${getBaseUrl()}/api`);
 
 // For Node.js API that currently not supported in some edge runtimes

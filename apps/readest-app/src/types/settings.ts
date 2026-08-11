@@ -169,11 +169,6 @@ export interface WebDAVSettings {
   // Wall-clock millisecond timestamp of the last successful end-to-end
   // sync, surfaced in the WebDAV settings sub-page.
   lastSyncedAt?: number;
-  // Device-local wall-clock millis of when this provider was made the
-  // selected cloud sync backend on THIS device. Anchors the mixed-fleet
-  // detection probe: any native /api/sync row newer than this means
-  // another device is still writing the gated channels.
-  providerSelectedAt?: number;
 }
 
 /**
@@ -195,8 +190,6 @@ export interface GoogleDriveSettings {
   strategy?: KOSyncStrategy;
   deviceId?: string;
   lastSyncedAt?: number;
-  /** See {@link WebDAVSettings.providerSelectedAt}. */
-  providerSelectedAt?: number;
 }
 
 /**
@@ -223,8 +216,6 @@ export interface S3Settings {
   strategy?: KOSyncStrategy;
   deviceId?: string;
   lastSyncedAt?: number;
-  /** See {@link WebDAVSettings.providerSelectedAt}. */
-  providerSelectedAt?: number;
 }
 
 /**
@@ -232,7 +223,7 @@ export interface S3Settings {
  * alongside {@link GoogleDriveSettings}, storing data in the Graph App Folder
  * (approot). No URL / credentials / root path and no BYO client; the OAuth
  * token lives in the OS keychain (native) or sessionStorage (web), never here.
- * `deviceId`/`lastSyncedAt`/`providerSelectedAt` are device-local.
+ * `deviceId` and `lastSyncedAt` are device-local.
  */
 export interface OneDriveSettings {
   enabled: boolean;
@@ -245,15 +236,13 @@ export interface OneDriveSettings {
   strategy?: KOSyncStrategy;
   deviceId?: string;
   lastSyncedAt?: number;
-  /** See {@link WebDAVSettings.providerSelectedAt}. */
-  providerSelectedAt?: number;
 }
 
 /**
  * iCloud Drive file-sync settings. Available only in the iOS/macOS Tauri
  * apps: the backend is the app's ubiquity container, synced by the OS. No
  * credentials and no OAuth — the device's iCloud session is the account.
- * `deviceId`/`lastSyncedAt`/`providerSelectedAt` are device-local.
+ * `deviceId` and `lastSyncedAt` are device-local.
  */
 export interface ICloudSettings {
   enabled: boolean;
@@ -264,69 +253,7 @@ export interface ICloudSettings {
   strategy?: KOSyncStrategy;
   deviceId?: string;
   lastSyncedAt?: number;
-  /** See {@link WebDAVSettings.providerSelectedAt}. */
-  providerSelectedAt?: number;
 }
-
-/**
- * Readest Cloud's own library-sync switch. Readest Cloud used to be the
- * derived fallback — "on" whenever no third-party provider was enabled —
- * because exactly one provider could own the library channels. Providers are
- * now independently selectable (#5062), so Readest Cloud needs a flag of its
- * own.
- *
- * `enabled` is DELIBERATELY optional with no default (this slice must never
- * enter `DEFAULT_SYSTEM_SETTINGS`): an absent value falls back to the old
- * derivation, so upgrading users keep exactly the behaviour they had and no
- * migration has to rewrite anyone's settings. It is written only once the user
- * touches a Cloud Sync checkbox.
- *
- * Device-local, like the other providers' `enabled` flags.
- */
-export interface ReadestCloudSettings {
-  enabled?: boolean;
-  /**
-   * Device-local wall-clock millis of when this device turned Readest Cloud
-   * off. Anchors the mixed-fleet probe: a native /api/sync row newer than this
-   * means another device is still writing the channels this one stopped
-   * writing. Excluded from cross-device restore.
-   */
-  disabledAt?: number;
-}
-
-/**
- * User-facing sync categories. 'progress' gates the existing book-config
- * (reading progress) sync, 'note' gates annotations, 'book' gates book
- * binaries + metadata, 'dictionary' gates the imported-dictionary replica
- * sync. 'credentials' is a meta-toggle that gates the encrypted-credential
- * fields (OPDS username/password, KOSync credentials, Readwise / Hardcover
- * tokens) across whichever replica kinds carry them. Adding a new replica
- * kind extends this union.
- */
-export type SyncCategory =
-  | 'book'
-  | 'progress'
-  | 'note'
-  | 'dictionary'
-  | 'font'
-  | 'texture'
-  | 'opds_catalog'
-  | 'settings'
-  | 'credentials'
-  | 'stats';
-
-export const SYNC_CATEGORIES: readonly SyncCategory[] = [
-  'book',
-  'progress',
-  'note',
-  'dictionary',
-  'font',
-  'texture',
-  'opds_catalog',
-  'settings',
-  'stats',
-  'credentials',
-] as const;
 
 export interface KeyBinding {
   /** `native` = media keys forwarded by the OS bridge; `dom` = keyboard/D-pad keys. */
@@ -386,7 +313,6 @@ export interface SystemSettings {
    */
   autoImportFlattenFolders?: string[];
 
-  keepLogin: boolean;
   alwaysOnTop: boolean;
   openBookInNewWindow: boolean;
   autoCheckUpdates: boolean;
@@ -403,7 +329,6 @@ export interface SystemSettings {
   autoImportBooksOnOpen: boolean;
   savedBookCoverForLockScreen: string;
   savedBookCoverForLockScreenPath: string;
-  telemetryEnabled: boolean;
   discordRichPresenceEnabled: boolean;
   libraryViewMode: LibraryViewModeType;
   librarySortBy: LibrarySortByType;
@@ -473,8 +398,6 @@ export interface SystemSettings {
   bookorbit: BookOrbitSettings;
   readwise: ReadwiseSettings;
   hardcover: HardcoverSettings;
-  /** Optional by design — see {@link ReadestCloudSettings}. Never defaulted. */
-  readestCloud?: ReadestCloudSettings;
   webdav: WebDAVSettings;
   googleDrive: GoogleDriveSettings;
   s3: S3Settings;
@@ -482,27 +405,6 @@ export interface SystemSettings {
   icloud: ICloudSettings;
 
   aiSettings: AISettings;
-  /**
-   * Per-device id used as the deviceId portion of every HLC this device
-   * mints. Lazy-generated on first sync init via uuidv4 (mirrors
-   * kosync.deviceId). Independent from kosync — the two services have
-   * distinct identifier semantics and rotation policies.
-   */
-  replicaDeviceId?: string;
-  /**
-   * Per-kind cursor for replica sync. Stores the HLC string of the last
-   * pulled row per kind. Absent kinds pull from the beginning.
-   */
-  lastSyncedAtReplicas?: Record<string, string>;
-  /**
-   * Per-category sync toggles. Missing keys default to ON. The
-   * 'progress' category gates the existing book-config (reading
-   * progress) sync; 'note' gates annotation sync; 'book' gates book
-   * binary + metadata sync; 'dictionary' gates the imported-dictionary
-   * replica sync. Future replica kinds add new SyncCategory members.
-   */
-  syncCategories?: Partial<Record<SyncCategory, boolean>>;
-
   // Global read settings that apply to the reader page
   globalReadSettings: ReadSettings;
   // Global view settings that apply to all books, and can be overridden by book-specific view settings

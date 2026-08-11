@@ -1,44 +1,16 @@
 import { describe, expect, test } from 'vitest';
 import {
   canToggleCloudProvider,
-  getReadestCloudRowStatus,
   getThirdPartyRowStatus,
 } from '@/components/settings/integrations/cloudSyncStatus';
 
 const _ = (key: string) => key;
-
-describe('getReadestCloudRowStatus', () => {
-  test('signed out wins over everything', () => {
-    expect(getReadestCloudRowStatus(_, { signedIn: false, planLoading: true, enabled: true })).toBe(
-      'Not signed in',
-    );
-  });
-
-  test('loading while the plan resolves', () => {
-    expect(getReadestCloudRowStatus(_, { signedIn: true, planLoading: true, enabled: true })).toBe(
-      '…',
-    );
-  });
-
-  test('reports off when the user unchecked it', () => {
-    expect(
-      getReadestCloudRowStatus(_, { signedIn: true, planLoading: false, enabled: false }),
-    ).toBe('Off');
-  });
-
-  test('reports active when checked', () => {
-    expect(getReadestCloudRowStatus(_, { signedIn: true, planLoading: false, enabled: true })).toBe(
-      'Active',
-    );
-  });
-});
 
 describe('getThirdPartyRowStatus', () => {
   const base = {
     enabled: true,
     configured: true,
     syncing: false,
-    paused: false,
     lastError: null,
     syncBooks: true,
     booksBackedUpElsewhere: false,
@@ -51,25 +23,15 @@ describe('getThirdPartyRowStatus', () => {
     expect(getThirdPartyRowStatus(_, { ...base, enabled: false })).toBe('Configured');
   });
 
-  test('paused outranks syncing, errors, and warnings', () => {
-    expect(
-      getThirdPartyRowStatus(_, { ...base, paused: true, syncing: true, lastError: 'x' }),
-    ).toBe('Paused — plan required');
-  });
-
   test('syncing while a run is in flight', () => {
     expect(getThirdPartyRowStatus(_, { ...base, syncing: true })).toBe('Syncing…');
   });
 
-  test('needs reauth when the web token is gone (outranks syncing/active, not paused)', () => {
+  test('needs reauth when the provider token is gone (outranks syncing/active)', () => {
     expect(getThirdPartyRowStatus(_, { ...base, needsReauth: true })).toBe('Reconnect required');
     // A gone token must never read as active or as an in-flight sync.
     expect(getThirdPartyRowStatus(_, { ...base, needsReauth: true, syncing: true })).toBe(
       'Reconnect required',
-    );
-    // But a plan-level pause still outranks it.
-    expect(getThirdPartyRowStatus(_, { ...base, needsReauth: true, paused: true })).toBe(
-      'Paused — plan required',
     );
   });
 
@@ -93,7 +55,6 @@ describe('getThirdPartyRowStatus: book file coverage', () => {
     enabled: true,
     configured: true,
     syncing: false,
-    paused: false,
     lastError: null,
     syncBooks: false,
   };
@@ -110,33 +71,15 @@ describe('getThirdPartyRowStatus: book file coverage', () => {
 });
 
 describe('canToggleCloudProvider', () => {
-  test('premium and configured can be toggled', () => {
-    expect(canToggleCloudProvider({ isPremium: true, isConfigured: true, isEnabled: false })).toBe(
-      true,
-    );
+  test('a configured provider can be enabled without a Readest plan', () => {
+    expect(canToggleCloudProvider({ isConfigured: true, isEnabled: false })).toBe(true);
   });
 
-  test('premium, unconfigured, and not enabled cannot be toggled', () => {
-    expect(canToggleCloudProvider({ isPremium: true, isConfigured: false, isEnabled: false })).toBe(
-      false,
-    );
+  test('an unconfigured inactive provider must be configured before enabling', () => {
+    expect(canToggleCloudProvider({ isConfigured: false, isEnabled: false })).toBe(false);
   });
 
-  test('a lapsed-plan user can always switch an enabled provider off', () => {
-    expect(canToggleCloudProvider({ isPremium: false, isConfigured: false, isEnabled: true })).toBe(
-      true,
-    );
-  });
-
-  test('not premium and not enabled cannot be toggled', () => {
-    expect(
-      canToggleCloudProvider({ isPremium: false, isConfigured: false, isEnabled: false }),
-    ).toBe(false);
-  });
-
-  test('premium with cleared config but still enabled can be toggled (rescue)', () => {
-    expect(canToggleCloudProvider({ isPremium: true, isConfigured: false, isEnabled: true })).toBe(
-      true,
-    );
+  test('an enabled provider can always be disabled after its config is cleared', () => {
+    expect(canToggleCloudProvider({ isConfigured: false, isEnabled: true })).toBe(true);
   });
 });

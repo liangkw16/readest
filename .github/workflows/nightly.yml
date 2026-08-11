@@ -24,6 +24,7 @@ concurrency:
 
 jobs:
   compute-version:
+    if: ${{ github.repository == 'readest/readest' }}
     runs-on: ubuntu-latest
     outputs:
       nightly_version: ${{ steps.v.outputs.nightly_version }}
@@ -40,6 +41,7 @@ jobs:
 
   build:
     needs: compute-version
+    if: ${{ github.repository == 'readest/readest' }}
     permissions:
       contents: read
       # Required by actions/attest-build-provenance: id-token mints the Sigstore
@@ -140,15 +142,7 @@ jobs:
 
       - name: create .env.local file for Next.js
         run: |
-          echo "NEXT_PUBLIC_POSTHOG_KEY=${{ secrets.NEXT_PUBLIC_POSTHOG_KEY }}" >> .env.local
-          echo "NEXT_PUBLIC_POSTHOG_HOST=${{ secrets.NEXT_PUBLIC_POSTHOG_HOST }}" >> .env.local
-          echo "NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}" >> .env.local
-          echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}" >> .env.local
           echo "NEXT_PUBLIC_APP_PLATFORM=tauri" >> .env.local
-          echo "SENTRY_DSN=${{ secrets.SENTRY_DSN }}" >> .env.local
-          echo "SENTRY_AUTH_TOKEN=${{ secrets.SENTRY_AUTH_TOKEN }}" >> .env.local
-          echo "SENTRY_ORG=readest" >> .env.local
-          echo "SENTRY_PROJECT=readest" >> .env.local
           cp .env.local apps/readest-app/.env.local
 
       - name: install rclone
@@ -453,7 +447,7 @@ jobs:
 
   assemble-manifest:
     needs: [compute-version, build]
-    if: ${{ always() && needs.build.result != 'cancelled' }}
+    if: ${{ github.repository == 'readest/readest' && always() && needs.build.result != 'cancelled' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

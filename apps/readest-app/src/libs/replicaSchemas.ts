@@ -72,8 +72,8 @@ const opdsCatalogFieldsSchema = z
 
 // Open-shaped: the bundled `settings` row stores arbitrary scalar
 // preferences keyed by `<setting>` or `<group>.<id>` (for flat-map
-// settings like providerEnabled.<id>, syncCategories.<id>,
-// shortcut.<action>). The whitelist of accepted field NAMES is
+// settings like providerEnabled.<id> and shortcut.<action>). The whitelist
+// of accepted field NAMES is
 // enforced client-side by the adapter; the server only enforces the
 // envelope shape and the 64-field / 64 KiB row caps.
 const settingsFieldsSchema = z.record(z.string(), fieldEnvelopeWithCipher);

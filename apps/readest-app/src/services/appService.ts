@@ -21,14 +21,12 @@ import { getLibraryFilename, getLibraryBackupFilename } from '@/utils/book';
 
 import { getOSPlatform } from '@/utils/misc';
 import { isStoragePermissionError, requestStoragePermission } from '@/utils/permission';
-import { ProgressHandler } from '@/utils/transfer';
 import { CustomTextureInfo } from '@/styles/textures';
 import { CustomFont, CustomFontInfo } from '@/styles/fonts';
 import type { ImportedDictionary } from './dictionaries/types';
 import type { SelectedFile } from '@/hooks/useFileSelector';
 
 import * as BookSvc from './bookService';
-import * as CloudSvc from './cloudService';
 import * as DictSvc from './dictionaries/dictionaryService';
 import * as FontSvc from './fontService';
 import * as ImageSvc from './imageService';
@@ -39,6 +37,7 @@ import {
   saveFeeds as saveFeedsToDisk,
 } from '@/services/rss/feedPersistence';
 import type { RssFeed } from '@/types/rss';
+import { deleteLocalBook } from './localBookDeleteService';
 
 export abstract class BaseAppService implements AppService {
   osPlatform: OsPlatform = getOSPlatform();
@@ -67,14 +66,12 @@ export abstract class BaseAppService implements AppService {
   hasOrientationLock = false;
   hasScreenBrightness = false;
   hasAmbientLightSensor = false;
-  hasIAP = false;
   canCustomizeRootDir = false;
   canReadExternalDir = false;
   supportsCanvasContext2DFilter = true;
   supportsViewTransitionsAPI = false;
   supportsViewTransitionGroup = false;
   distChannel = 'readest' as DistChannel;
-  storefrontRegionCode: string | null = null;
   isOnlineCatalogsAccessible = true;
 
   protected CURRENT_MIGRATION_VERSION = 20260706;
@@ -142,10 +139,10 @@ export abstract class BaseAppService implements AppService {
   }
 
   /**
-   * Users with WebDAV/Drive already enabled had native Readest Cloud uploads
-   * gated off when cloud sync provider selection shipped; flip syncBooks on
-   * once for every enabled third-party backend so their books keep backing up
-   * somewhere. This force-enables syncBooks a single time even for a user who
+   * Existing installations may have a user-owned backend enabled while its
+   * book-file toggle is still off. Flip syncBooks on once for every enabled
+   * backend so those installations actually back up their books. This
+   * force-enables syncBooks a single time even for a user who
    * had explicitly turned it off — intentional, since the alternative is books
    * backing up nowhere. Mutates the caller's settings snapshot, which the
    * caller persists together with migrationVersion.
@@ -333,107 +330,7 @@ export abstract class BaseAppService implements AppService {
   }
 
   async deleteBook(book: Book, deleteAction: DeleteAction): Promise<void> {
-    return CloudSvc.deleteBook(this.fs, book, deleteAction);
-  }
-
-  async uploadFileToCloud(
-    lfp: string,
-    cfp: string,
-    base: BaseDir,
-    handleProgress: ProgressHandler,
-    hash: string,
-    temp: boolean = false,
-    media?: string,
-  ) {
-    return CloudSvc.uploadFileToCloud(
-      this.fs,
-      this.resolveFilePath.bind(this),
-      lfp,
-      cfp,
-      base,
-      handleProgress,
-      hash,
-      temp,
-      media,
-    );
-  }
-
-  async uploadReplicaFile(
-    kind: string,
-    replicaId: string,
-    filename: string,
-    lfp: string,
-    base: BaseDir,
-    onProgress: ProgressHandler,
-  ) {
-    return CloudSvc.uploadReplicaFileToCloud(this.fs, this.resolveFilePath.bind(this), {
-      kind,
-      replicaId,
-      filename,
-      lfp,
-      base,
-      onProgress,
-    });
-  }
-
-  async downloadReplicaFile(
-    kind: string,
-    replicaId: string,
-    filename: string,
-    lfp: string,
-    base: BaseDir,
-    onProgress?: ProgressHandler,
-  ) {
-    // Resolve the relative `<bundleDir>/<filename>` lfp against the
-    // replica's base dir before downloading. Mirrors how upload uses
-    // `resolveFilePath(opts.lfp, opts.base)`. Without this, the writer
-    // lands the bytes at the literal lfp (no base prefix) so subsequent
-    // openFile(lfp, base) calls fail with "File not found".
-    const dst = await this.resolveFilePath(lfp, base);
-    return CloudSvc.downloadReplicaFileFromCloud(this, {
-      kind,
-      replicaId,
-      filename,
-      dst,
-      onProgress,
-    });
-  }
-
-  async deleteReplicaBundle(kind: string, replicaId: string, filenames: string[]) {
-    return CloudSvc.deleteReplicaBundleFromCloud(kind, replicaId, filenames);
-  }
-
-  async uploadBook(book: Book, onProgress?: ProgressHandler): Promise<void> {
-    return CloudSvc.uploadBook(this.fs, this.resolveFilePath.bind(this), book, onProgress);
-  }
-
-  async uploadBookCover(book: Book, onProgress?: ProgressHandler): Promise<void> {
-    return CloudSvc.uploadBookCover(this.fs, this.resolveFilePath.bind(this), book, onProgress);
-  }
-
-  async downloadCloudFile(lfp: string, cfp: string, onProgress: ProgressHandler) {
-    return CloudSvc.downloadCloudFile(this, this.localBooksDir, lfp, cfp, onProgress);
-  }
-
-  async downloadBookCovers(books: Book[]): Promise<void> {
-    return CloudSvc.downloadBookCovers(this, this.fs, this.localBooksDir, books);
-  }
-
-  async downloadBook(
-    book: Book,
-    onlyCover = false,
-    redownload = false,
-    onProgress?: ProgressHandler,
-  ): Promise<void> {
-    return CloudSvc.downloadBook(
-      this,
-      this.fs,
-      this.localBooksDir,
-      book,
-      onlyCover,
-      redownload,
-      onProgress,
-    );
+    return deleteLocalBook(this.fs, book, deleteAction);
   }
 
   async exportBook(book: Book): Promise<boolean> {
@@ -471,7 +368,7 @@ export abstract class BaseAppService implements AppService {
   }
 
   async fetchBookDetails(book: Book) {
-    return BookSvc.fetchBookDetails(this.fs, book, this.downloadBook.bind(this));
+    return BookSvc.fetchBookDetails(this.fs, book);
   }
 
   async saveBookConfig(book: Book, config: BookConfig, settings?: SystemSettings) {

@@ -22,9 +22,8 @@ export interface WebDAVConnectFormValues {
  * Deliberately does NOT touch `enabled`: activation belongs to
  * `withCloudProviderEnabled`, which the connect flow applies on top. If the
  * builder pre-set `enabled`, activation would never see the
- * disabled -> enabled transition and its side effects (the syncBooks
- * auto-flip, the providerSelectedAt stamp) would silently skip the most
- * common path.
+ * disabled -> enabled transition and its `syncBooks` auto-flip would silently
+ * skip the most common path.
  *
  * Pulled out as a pure helper specifically to unit-test the "reconnect
  * preserves prior state" invariant: the inline version in WebDAVForm

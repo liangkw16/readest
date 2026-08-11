@@ -478,17 +478,15 @@ function baseName(fileName: string | undefined, fallback: string): string {
  * cover, headings-as-TOC. Shared between every "self-contained page clip"
  * caller:
  *
- *   - The Tauri desktop / mobile `/send` URL field (Tauri-only path).
- *   - The browser extension's service worker (`extensions/send-to-readest`).
- *   - Future: any other channel that captures the rendered DOM and wants
+ *   - Tauri desktop/mobile OS share and clipping flows.
+ *   - Future channels that capture the rendered DOM and want
  *     the same EPUB out the other side.
  *
  * Centralising it here is the only way to guarantee that the same URL
  * produces byte-identical EPUBs across desktop, mobile, and extension —
  * which is what the import-time hash dedup relies on.
  *
- * Only valid from a CORS-free caller (Tauri webview or browser-extension
- * service worker with broad `host_permissions`). A plain web page hitting
+ * Only valid from a CORS-free caller such as the Tauri webview. A plain web page hitting
  * this would fail on the image fetches.
  */
 export async function convertPageToEpub(html: string, url: string): Promise<ConvertedBook> {

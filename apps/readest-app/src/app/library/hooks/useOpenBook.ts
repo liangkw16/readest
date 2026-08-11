@@ -10,7 +10,7 @@ import { navigateToReader, showReaderWindow } from '@/utils/nav';
 import { getActiveFileSyncBackends } from '@/services/sync/cloudSyncProvider';
 
 /**
- * Whether a third-party file mirror (WebDAV / Google Drive / S3 / OneDrive) is
+ * Whether a user-owned file mirror (WebDAV / Google Drive / S3 / OneDrive / iCloud) is
  * switched on. Read straight off the store: the callbacks below are memoized
  * without `settings` in their dependency list, so a captured copy would go
  * stale the moment the user toggles a provider.
@@ -20,16 +20,13 @@ const hasFileSyncMirror = (): boolean =>
 
 interface UseOpenBookOptions {
   setLoading: Dispatch<SetStateAction<boolean>>;
-  handleBookDownload: (
-    book: Book,
-    options?: { redownload?: boolean; queued?: boolean },
-  ) => Promise<boolean>;
+  handleBookDownload: (book: Book) => Promise<boolean>;
 }
 
 /**
  * Shared "open this book" flow used both by per-item taps (`BookshelfItem`) and
  * the recently-read shelf. Centralizing it keeps the availability handling in
- * one place: cloud-synced books (which arrive on other devices as metadata +
+ * one place: file-synced books (which arrive on other devices as metadata +
  * progress without the file blob) are downloaded on demand, and a stale
  * in-place record is dropped instead of bouncing the user into a broken reader.
  */
@@ -64,7 +61,7 @@ export const useOpenBook = ({ setLoading, handleBookDownload }: UseOpenBookOptio
       let available = false;
       const loadingTimeout = setTimeout(() => setLoading(true), 200);
       try {
-        available = await handleBookDownload(book, { queued: false });
+        available = await handleBookDownload(book);
         await updateBook(envConfig, book);
       } finally {
         if (loadingTimeout) clearTimeout(loadingTimeout);

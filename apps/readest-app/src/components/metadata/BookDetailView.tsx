@@ -1,14 +1,6 @@
 import clsx from 'clsx';
 import React, { useState } from 'react';
-import {
-  MdOutlineCloudDownload,
-  MdOutlineCloudUpload,
-  MdOutlineDelete,
-  MdOutlineEdit,
-  MdMenu,
-  MdExpandMore,
-  MdExpandLess,
-} from 'react-icons/md';
+import { MdOutlineDelete, MdOutlineEdit, MdMenu, MdExpandMore, MdExpandLess } from 'react-icons/md';
 
 import { Book } from '@/types/book';
 import { BookMetadata } from '@/libs/document';
@@ -27,7 +19,6 @@ import {
   formatTitle,
   getContributorNames,
 } from '@/utils/book';
-import { isFeedBook } from '@/services/rss/feedBookUrl';
 import { saveSysSettings } from '@/helpers/settings';
 import BookCover from '@/components/BookCover';
 import Dropdown from '../Dropdown';
@@ -37,14 +28,8 @@ interface BookDetailViewProps {
   book: Book;
   metadata: BookMetadata | null;
   fileSize: number | null;
-  shareEnabled?: boolean;
   onEdit?: () => void;
   onDelete?: () => void;
-  onDeleteCloudBackup?: () => void;
-  onDeleteLocalCopy?: () => void;
-  onDownload?: () => void;
-  onUpload?: () => void;
-  onShare?: () => void;
   onExport?: () => void;
   onMetadataValueClick?: (type: 'tag' | 'subject', value: string) => void;
 }
@@ -53,14 +38,8 @@ const BookDetailView: React.FC<BookDetailViewProps> = ({
   book,
   metadata,
   fileSize,
-  shareEnabled,
   onEdit,
   onDelete,
-  onDeleteCloudBackup,
-  onDeleteLocalCopy,
-  onDownload,
-  onUpload,
-  onShare,
   onExport,
   onMetadataValueClick,
 }) => {
@@ -89,7 +68,7 @@ const BookDetailView: React.FC<BookDetailViewProps> = ({
     );
   };
 
-  // Export and Share both read the book file off disk; `fileSize` is only
+  // Export reads the book file off disk; `fileSize` is only
   // non-null when getBookFileSize could actually open the local copy.
   const hasLocalFile = fileSize !== null;
 
@@ -134,57 +113,15 @@ const BookDetailView: React.FC<BookDetailViewProps> = ({
                 <MdOutlineEdit className='hover:fill-blue-500' />
               </button>
             )}
-            {book.uploadedAt && onDownload && (
-              <button onClick={onDownload} title={_('Download from Cloud')}>
-                <MdOutlineCloudDownload className='fill-base-content' />
-              </button>
-            )}
-            {/* A feed book is fileless — there is nothing to push (#5307). */}
-            {book.downloadedAt && !isFeedBook(book) && onUpload && (
-              <button onClick={onUpload} title={_('Upload to Cloud')}>
-                <MdOutlineCloudUpload className='fill-base-content' />
-              </button>
-            )}
             {onDelete && (
-              <Dropdown
-                label={_('Delete Book Options')}
-                className='dropdown-bottom dropdown-center flex justify-center'
-                buttonClassName='btn btn-ghost h-8 min-h-8 w-8 p-0'
-                toggleButton={<MdOutlineDelete className='fill-red-500' />}
+              <button
+                type='button'
+                onClick={onDelete}
+                title={_('Delete Book')}
+                aria-label={_('Delete Book')}
               >
-                <div
-                  className={clsx(
-                    'delete-menu dropdown-content no-triangle !relative',
-                    'border-base-300 !bg-base-200 z-20 mt-1 max-w-[90vw] shadow-2xl',
-                  )}
-                >
-                  <MenuItem
-                    noIcon
-                    transient
-                    label={_('Remove from Cloud & Device')}
-                    onClick={onDelete}
-                  />
-                  {/* Offered only where a cloud-only removal means something: a
-                      third-party provider mirrors the library, so it would just
-                      re-upload the still-local book on its next sync (#5084). */}
-                  {onDeleteCloudBackup && (
-                    <MenuItem
-                      noIcon
-                      transient
-                      label={_('Remove from Cloud Only')}
-                      onClick={onDeleteCloudBackup}
-                      disabled={!book.uploadedAt}
-                    />
-                  )}
-                  <MenuItem
-                    noIcon
-                    transient
-                    label={_('Remove from Device Only')}
-                    onClick={onDeleteLocalCopy}
-                    disabled={!book.downloadedAt}
-                  />
-                </div>
-              </Dropdown>
+                <MdOutlineDelete className='fill-red-500' />
+              </button>
             )}
             <Dropdown
               label={_('More Actions')}
@@ -206,20 +143,6 @@ const BookDetailView: React.FC<BookDetailViewProps> = ({
                     openExternalUrl(getGoodreadsSearchUrl(getBookGoodreadsQuery(book)))
                   }
                 />
-                {onShare && (
-                  <MenuItem
-                    noIcon
-                    transient
-                    label={_('Share Book')}
-                    disabled={!shareEnabled}
-                    tooltip={
-                      shareEnabled
-                        ? undefined
-                        : _('Sign in and make the book available to share it')
-                    }
-                    onClick={onShare}
-                  />
-                )}
                 {onExport && (
                   <MenuItem
                     noIcon

@@ -28,14 +28,6 @@ vi.mock('@/utils/txt', () => ({
 }));
 vi.mock('@/utils/svg', () => ({ svg2png: vi.fn() }));
 vi.mock('@tauri-apps/plugin-http', () => ({ fetch: vi.fn() }));
-vi.mock('@/libs/storage', () => ({
-  downloadFile: vi.fn(),
-  uploadFile: vi.fn(),
-  deleteFile: vi.fn(),
-  createProgressHandler: vi.fn(),
-  batchGetDownloadUrls: vi.fn(),
-}));
-
 import { BaseAppService } from '@/services/appService';
 
 class TestAppService extends BaseAppService {

@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useEnv } from '@/context/EnvContext';
 import { useTranslation } from '@/hooks/useTranslation';
-import { useQuotaStats } from '@/hooks/useQuotaStats';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useLibraryStore } from '@/store/libraryStore';
 import { debounce } from '@/utils/debounce';
@@ -9,8 +8,8 @@ import { getActiveFileSyncBackends } from '@/services/sync/cloudSyncProvider';
 import { runFileLibrarySyncPass } from '@/services/sync/file/runLibrarySync';
 
 /**
- * Library-scoped auto-sync for every enabled third-party cloud backend (#5062) —
- * the parity counterpart of {@link useBooksSync} (native cloud).
+ * Library-scoped auto-sync for every enabled user-owned file backend — the
+ * automatic counterpart of {@link useBooksSync}.
  *
  * The reader's per-book `useFileSync` keeps a book's progress/notes in sync while
  * reading, but never touches the shared `library.json` index. This hook fills
@@ -36,9 +35,8 @@ export const useLibraryFileSync = () => {
   const settings = useSettingsStore((s) => s.settings);
   const library = useLibraryStore((s) => s.library);
   const libraryLoaded = useLibraryStore((s) => s.libraryLoaded);
-  const { userProfilePlan } = useQuotaStats();
 
-  const hasBackends = getActiveFileSyncBackends(settings, userProfilePlan ?? 'free').length > 0;
+  const hasBackends = getActiveFileSyncBackends(settings).length > 0;
 
   // Keep one stable debounced trigger that always calls the latest pass (via
   // ref), so it isn't recreated — and lost — on every settings change.

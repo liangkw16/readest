@@ -33,6 +33,10 @@ export interface BackupOptions {
  * the current device's value for every path here — see issue #4098.
  */
 export const BACKUP_SETTINGS_BLACKLIST = [
+  // Retired official-account preference retained only as a migration guard for
+  // backups created by older versions of the app.
+  'keepLogin',
+  'telemetryEnabled',
   // Device filesystem paths — invalid on another device / OS.
   'localBooksDir',
   'customRootDir',
@@ -55,6 +59,7 @@ export const BACKUP_SETTINGS_BLACKLIST = [
   'googleDrive.lastSyncedAt',
   'webdav.deviceId',
   'webdav.lastSyncedAt',
+  // Retired mixed-fleet timestamps may still exist in older backups.
   'webdav.providerSelectedAt',
   'googleDrive.providerSelectedAt',
   'onedrive.deviceId',
@@ -66,7 +71,6 @@ export const BACKUP_SETTINGS_BLACKLIST = [
   'icloud.deviceId',
   'icloud.lastSyncedAt',
   'icloud.providerSelectedAt',
-  'readestCloud.disabledAt',
   // Transient runtime state — book keys may not exist post-restore; screen
   // brightness is live device state.
   'lastOpenBooks',

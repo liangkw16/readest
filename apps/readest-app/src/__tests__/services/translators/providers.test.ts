@@ -22,18 +22,6 @@ vi.mock('@tauri-apps/plugin-http', () => ({
   fetch: vi.fn(),
 }));
 
-// Stub Supabase so importing the full providers registry (which pulls in
-// deepl.ts → @/utils/access → @/utils/supabase) doesn't instantiate a real
-// GoTrueClient on every `vi.resetModules()` round. Without this, each test
-// that dynamically imports the registry logs a "Multiple GoTrueClient
-// instances" warning from the real Supabase client.
-vi.mock('@/utils/supabase', () => ({
-  supabase: {
-    auth: { getSession: vi.fn().mockResolvedValue({ data: { session: null } }) },
-    from: vi.fn(),
-  },
-}));
-
 const mockFetch = vi.fn();
 vi.stubGlobal('fetch', mockFetch);
 
@@ -203,11 +191,11 @@ describe('yandexProvider', () => {
     });
 
     const { yandexProvider } = await import('@/services/translators/providers/yandex');
-    const result = await yandexProvider.translate(['Hello'], 'en', 'fr', 'readest-access-token');
+    const result = await yandexProvider.translate(['Hello'], 'en', 'fr');
     expect(result).toEqual(['<Hello>']);
 
     for (const [, init] of mockFetch.mock.calls) {
-      expect(init.headers['Authorization']).toBe('Bearer readest-access-token');
+      expect(init.headers['Authorization']).toBeUndefined();
     }
     const urls = mockFetch.mock.calls.map(([url]) => String(url));
     expect(urls[0]).toContain('/api/yandex-translate?endpoint=session');
@@ -218,14 +206,17 @@ describe('yandexProvider', () => {
     expect(mockTauriFetch).not.toHaveBeenCalled();
   });
 
-  it('rejects web requests without a Readest token before fetching', async () => {
+  it('translates in web builds without a Readest token', async () => {
     vi.mocked(isTauriAppPlatform).mockReturnValue(false);
+    mockFetch.mockImplementation(async (url: string, init?: { body?: string }) => {
+      if (String(url).includes('endpoint=session')) return sessionResponse();
+      const text = new URLSearchParams(init?.body ?? '').get('text') ?? '';
+      return { ok: true, json: async () => ({ code: 200, text: [`<${text}>`] }) };
+    });
 
     const { yandexProvider } = await import('@/services/translators/providers/yandex');
-    await expect(yandexProvider.translate(['Hello'], 'en', 'fr')).rejects.toThrow(
-      'yandex translate requires authentication in web builds',
-    );
-    expect(mockFetch).not.toHaveBeenCalled();
+    await expect(yandexProvider.translate(['Hello'], 'en', 'fr')).resolves.toEqual(['<Hello>']);
+    expect(mockFetch).toHaveBeenCalledTimes(2);
     expect(mockTauriFetch).not.toHaveBeenCalled();
   });
 
@@ -384,7 +375,7 @@ describe('yandexProvider', () => {
     const { yandexProvider } = await import('@/services/translators/providers/yandex');
     expect(yandexProvider.name).toBe('yandex');
     expect(yandexProvider.label).toBe('Yandex Translate');
-    expect(yandexProvider.authRequired).toBe(false);
+    expect(yandexProvider.authRequired).toBeUndefined();
   });
 
   it('translates multiple texts in parallel', async () => {
@@ -612,7 +603,7 @@ describe('azureProvider', () => {
     mockProxyAuthAndTranslation('Bonjour');
 
     const { azureProvider } = await import('@/services/translators/providers/azure');
-    const result = await azureProvider.translate(['Hello'], 'en', 'fr', 'user-token');
+    const result = await azureProvider.translate(['Hello'], 'en', 'fr');
     expect(result).toEqual(['Bonjour']);
 
     const urls = mockFetch.mock.calls.map((call) => String(call[0]));
@@ -623,12 +614,12 @@ describe('azureProvider', () => {
     expect(urls.some((url) => url.includes('bing.com'))).toBe(false);
   });
 
-  it('requires authentication only in web builds', async () => {
+  it('does not require a Readest account in either runtime', async () => {
     const { azureProvider } = await import('@/services/translators/providers/azure');
-    expect(azureProvider.authRequired).toBe(true);
+    expect(azureProvider.authRequired).toBeUndefined();
 
     vi.mocked(isTauriAppPlatform).mockReturnValue(true);
-    expect(azureProvider.authRequired).toBe(false);
+    expect(azureProvider.authRequired).toBeUndefined();
   });
 
   it('splits texts over the 1000 character limit and rejoins them', async () => {
@@ -709,12 +700,11 @@ describe('azureProvider', () => {
     expect(translateCalls).toHaveLength(24);
   });
 
-  it('rejects in web builds when there is no user token', async () => {
+  it('translates in web builds without a user token', async () => {
+    mockProxyAuthAndTranslation('Bonjour');
     const { azureProvider } = await import('@/services/translators/providers/azure');
-    await expect(azureProvider.translate(['Hello'], 'en', 'fr')).rejects.toThrow(
-      'azure translate requires authentication in web builds',
-    );
-    expect(mockFetch).not.toHaveBeenCalled();
+    await expect(azureProvider.translate(['Hello'], 'en', 'fr')).resolves.toEqual(['Bonjour']);
+    expect(mockFetch).toHaveBeenCalledTimes(2);
   });
 
   it('scrapes bing directly on Tauri, bypassing the proxy', async () => {
@@ -928,14 +918,14 @@ describe('provider registry availability handling', () => {
     expect(names).toContain('yandex');
   });
 
-  it('requires authentication for yandex only in web builds', async () => {
+  it('keeps yandex available without a Readest account in every runtime', async () => {
     const { getTranslator, isTranslatorAvailable } = await import(
       '@/services/translators/providers'
     );
     const yandex = getTranslator('yandex')!;
 
     vi.mocked(isTauriAppPlatform).mockReturnValue(false);
-    expect(isTranslatorAvailable(yandex, false)).toBe(false);
+    expect(isTranslatorAvailable(yandex, false)).toBe(true);
     expect(isTranslatorAvailable(yandex, true)).toBe(true);
 
     vi.mocked(isTauriAppPlatform).mockReturnValue(true);
@@ -968,6 +958,20 @@ describe('provider registry availability handling', () => {
     );
     const google = getTranslator('google')!;
     expect(getTranslatorDisplayLabel(google, true, (s) => s)).toBe('Google Translate');
+  });
+
+  it('does not offer official login for account-backed web translators', async () => {
+    const { getTranslatorDisplayLabel } = await import('@/services/translators/providers');
+    const accountBacked = {
+      name: 'official-proxy',
+      label: 'Official Proxy',
+      authRequired: true,
+      translate: async () => [],
+    };
+
+    expect(getTranslatorDisplayLabel(accountBacked, false, (s) => s)).toBe(
+      'Official Proxy (Desktop App Only)',
+    );
   });
 });
 

@@ -1,4 +1,4 @@
-import { READEST_WEB_BASE_URL } from '@/services/constants';
+import { getBaseUrl } from '@/services/environment';
 
 export type AnnotationDeepLink = {
   bookHash: string;
@@ -21,7 +21,14 @@ const ANNOTATION_PATH_PREFIX = '/o/book/';
  * landing page at /o/book/{hash}/annotation/{id}.
  */
 export const buildAnnotationWebUrl = ({ bookHash, noteId, cfi }: AnnotationDeepLink): string => {
-  const base = `${READEST_WEB_BASE_URL}${ANNOTATION_PATH_PREFIX}${bookHash}/annotation/${noteId}`;
+  const configuredBase = getBaseUrl().replace(/\/+$/, '');
+  const browserBase =
+    typeof window !== 'undefined' && /^https?:$/.test(window.location.protocol)
+      ? window.location.origin
+      : '';
+  const webBase = configuredBase || browserBase;
+  if (!webBase) return buildAnnotationAppUrl({ bookHash, noteId, cfi });
+  const base = `${webBase}${ANNOTATION_PATH_PREFIX}${bookHash}/annotation/${noteId}`;
   return cfi ? `${base}?cfi=${encodeURIComponent(cfi)}` : base;
 };
 

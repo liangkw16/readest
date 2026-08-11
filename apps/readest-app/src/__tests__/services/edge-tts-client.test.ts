@@ -1,5 +1,7 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
 
+const edgeMockState = vi.hoisted(() => ({ protocols: [] as string[] }));
+
 // Shared mock control: tests can override createBehavior to change how create() behaves
 let createBehavior: () => Promise<undefined> = () => Promise.resolve(undefined);
 
@@ -25,6 +27,9 @@ vi.mock('@/libs/edgeTTS', () => {
   return {
     EdgeSpeechTTS: class MockEdgeSpeechTTS {
       static voices = voices;
+      constructor(protocol = 'wss') {
+        edgeMockState.protocols.push(protocol);
+      }
       create = vi.fn().mockImplementation(() => createBehavior());
       createAudioData = vi.fn().mockImplementation(() => createAudioDataBehavior());
     },
@@ -77,6 +82,7 @@ describe('EdgeTTSClient', () => {
 
   beforeEach(() => {
     tauriPlatform = false;
+    edgeMockState.protocols.length = 0;
     createBehavior = () => Promise.resolve(undefined);
     createAudioDataBehavior = vi.fn<() => Promise<MockAudioData>>(() =>
       Promise.resolve({ data: new ArrayBuffer(8), boundaries: [] }),
@@ -127,12 +133,8 @@ describe('EdgeTTSClient', () => {
       expect(voices.map((v) => v.id)).toContain('en-US-AriaNeural');
     });
 
-    test('wss failure falls back to https when controller is authenticated', async () => {
-      const mockController = {
-        isAuthenticated: true,
-        dispatchEvent: vi.fn(),
-      } as unknown as TTSController;
-      const c = new EdgeTTSClient(mockController);
+    test('wss failure falls back to the same-origin https route without account state', async () => {
+      const c = new EdgeTTSClient();
 
       // First call (wss protocol) fails, second call (https fallback) succeeds
       let callCount = 0;
@@ -147,15 +149,12 @@ describe('EdgeTTSClient', () => {
       expect(c.initialized).toBe(true);
       // Two calls: initial wss attempt + https fallback
       expect(callCount).toBe(2);
+      expect(edgeMockState.protocols).toEqual(['wss', 'https']);
     });
 
-    test('wss failure does not fall back to https on Tauri even when authenticated', async () => {
+    test('wss failure does not fall back to a relative https route on Tauri', async () => {
       tauriPlatform = true;
-      const mockController = {
-        isAuthenticated: true,
-        dispatchEvent: vi.fn(),
-      } as unknown as TTSController;
-      const c = new EdgeTTSClient(mockController);
+      const c = new EdgeTTSClient();
 
       let callCount = 0;
       createBehavior = () => {
@@ -168,12 +167,12 @@ describe('EdgeTTSClient', () => {
       // Only the wss probe ran: the /api/tts/edge proxy must not be requested
       // from the Tauri app (its native wss transport is the only Edge path).
       expect(callCount).toBe(1);
+      expect(edgeMockState.protocols).toEqual(['wss']);
     });
 
-    test('wss failure dispatches tts-need-auth when not authenticated', async () => {
+    test('transport failures do not request a Readest login', async () => {
       const dispatchEvent = vi.fn();
       const mockController = {
-        isAuthenticated: false,
         dispatchEvent,
       } as unknown as TTSController;
       const c = new EdgeTTSClient(mockController);
@@ -182,17 +181,11 @@ describe('EdgeTTSClient', () => {
 
       const result = await c.init();
       expect(result).toBe(false);
-      expect(dispatchEvent).toHaveBeenCalledWith(
-        expect.objectContaining({ type: 'tts-need-auth' }),
-      );
+      expect(dispatchEvent).not.toHaveBeenCalled();
     });
 
     test('https failure sets initialized to false', async () => {
-      const mockController = {
-        isAuthenticated: true,
-        dispatchEvent: vi.fn(),
-      } as unknown as TTSController;
-      const c = new EdgeTTSClient(mockController);
+      const c = new EdgeTTSClient();
 
       // Both wss and https always fail
       createBehavior = () => Promise.reject(new Error('failed'));

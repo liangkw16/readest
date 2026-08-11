@@ -18,10 +18,6 @@ vi.mock('@/services/environment', () => ({
   isTauriAppPlatform: () => true,
 }));
 
-vi.mock('@/utils/fetch', () => ({
-  fetchWithAuth: vi.fn(),
-}));
-
 import { EdgeSpeechTTS, type EdgeTTSPayload } from '@/libs/edgeTTS';
 
 type FakeMessage = unknown;

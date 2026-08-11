@@ -1,4 +1,5 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest';
+import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 
 // mock fetch for provider tests
 const mockFetch = vi.fn();
@@ -193,6 +194,24 @@ describe('OpenRouterProvider', () => {
     expect(provider.id).toBe('openrouter');
     expect(provider.name).toBe('OpenRouter (Custom)');
     expect(provider.requiresAuth).toBe(true);
+  });
+
+  test('does not attribute custom endpoint traffic to the official Readest site', () => {
+    const settings: AISettings = {
+      ...DEFAULT_AI_SETTINGS,
+      enabled: true,
+      provider: 'openrouter',
+      openrouterApiKey: 'sk-or-test',
+      openrouterBaseUrl: 'https://models.example.test/v1',
+    };
+
+    new OpenRouterProvider(settings);
+
+    expect(createOpenAICompatible).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        headers: { 'X-Title': 'Local Readest' },
+      }),
+    );
   });
 
   test('isAvailable should return true if key exists', async () => {

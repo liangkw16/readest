@@ -5,7 +5,6 @@ import { useBookDataStore } from '@/store/bookDataStore';
 import { useReaderStore } from '@/store/readerStore';
 import { useBookProgress } from '@/store/readerProgressStore';
 import { useSettingsStore } from '@/store/settingsStore';
-import { useQuotaStats } from '@/hooks/useQuotaStats';
 import { useTranslation } from '@/hooks/useTranslation';
 import { debounce } from '@/utils/debounce';
 import { eventDispatcher } from '@/utils/event';
@@ -26,13 +25,10 @@ import { removeBookNoteOverlays } from '../utils/annotatorUtil';
 import { useWindowActiveChanged } from './useWindowActiveChanged';
 
 /**
- * Per-book file-sync hook — drives EVERY enabled third-party backend at once.
+ * Per-book file-sync hook — drives every enabled user-owned backend at once.
  *
- * Cloud sync providers are independently selectable (#5062): several
- * third-party backends (WebDAV, Google Drive, S3, OneDrive) can mirror a
- * book's progress and annotations in parallel, alongside (or instead of)
- * Readest Cloud, whose native progress sync is `useProgressSync`'s job, not
- * this hook's, and runs independently.
+ * Backends are independently selectable: WebDAV, Google Drive, S3, OneDrive,
+ * and iCloud can mirror a book's progress and annotations in parallel.
  *
  * The hook is called exactly once per book (React forbids a variable hook
  * count), so every scalar the single-backend version used to hold —
@@ -105,14 +101,8 @@ export const useFileSync = (bookKey: string) => {
   // Reactive: triggers the auto-push effect on page turns.
   const progress = useBookProgress(bookKey);
 
-  const { userProfilePlan } = useQuotaStats();
-  // Every enabled third-party backend syncs this book in parallel (#5062);
-  // Readest Cloud's native progress sync is useProgressSync's job, not this
-  // hook's, and runs independently.
-  const activeKinds = useMemo(
-    () => getActiveFileSyncBackends(settings, userProfilePlan ?? 'free'),
-    [settings, userProfilePlan],
-  );
+  // Every enabled user-owned backend syncs this book in parallel.
+  const activeKinds = useMemo(() => getActiveFileSyncBackends(settings), [settings]);
 
   /** Flips true on the first local change after a push, false right before each push. */
   const dirtyRef = useRef(false);
@@ -603,13 +593,20 @@ export const useFileSync = (bookKey: string) => {
       hasPulledOnce.current = false;
       syncRefs.current.pullNow();
     };
+    const handleConverge = async (event: CustomEvent) => {
+      if (event.detail?.bookKey !== bookKey) return;
+      await syncRefs.current.pullNow();
+      await syncRefs.current.pushNow();
+    };
     eventDispatcher.on('push-file-sync', handlePush);
     eventDispatcher.on('pull-file-sync', handlePull);
     eventDispatcher.on('flush-file-sync', handlePush);
+    eventDispatcher.on('sync-book-progress', handleConverge);
     return () => {
       eventDispatcher.off('push-file-sync', handlePush);
       eventDispatcher.off('pull-file-sync', handlePull);
       eventDispatcher.off('flush-file-sync', handlePush);
+      eventDispatcher.off('sync-book-progress', handleConverge);
     };
   }, [bookKey, debouncedPush]);
 

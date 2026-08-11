@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { MetadataService } from '@/services/metadata/service';
 import { SearchRequest } from '@/services/metadata/types';
-import { validateUserAndToken } from '@/utils/access';
 
 interface ApiResponse<T> {
   success: boolean;
@@ -75,6 +74,11 @@ function createResponse<T>(
 
 let metadataService: MetadataService;
 
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const RATE_LIMIT_REQUESTS = 60;
+const MAX_CONCURRENT_REQUESTS = 3;
+const requestBudgets = new Map<string, { count: number; resetAt: number; active: number }>();
+
 function getMetadataService(): MetadataService {
   if (!metadataService) {
     metadataService = new MetadataService({
@@ -85,10 +89,41 @@ function getMetadataService(): MetadataService {
 }
 
 export async function POST(request: NextRequest) {
-  const { user, token } = await validateUserAndToken(request.headers.get('authorization'));
-  if (!user || !token) {
-    return NextResponse.json({ error: 'Not authenticated' }, { status: 403 });
+  const origin = request.headers.get('origin');
+  try {
+    if (!origin || new URL(origin).origin !== new URL(request.url).origin) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+  } catch {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
+
+  const now = Date.now();
+  const clientId =
+    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    request.headers.get('x-real-ip') ||
+    request.headers.get('user-agent') ||
+    'local';
+  let budget = requestBudgets.get(clientId);
+  if (!budget) {
+    budget = {
+      count: 0,
+      resetAt: now + RATE_LIMIT_WINDOW_MS,
+      active: 0,
+    };
+    requestBudgets.set(clientId, budget);
+  } else if (budget.resetAt <= now) {
+    budget.count = 0;
+    budget.resetAt = now + RATE_LIMIT_WINDOW_MS;
+  }
+  if (budget.count >= RATE_LIMIT_REQUESTS || budget.active >= MAX_CONCURRENT_REQUESTS) {
+    return NextResponse.json(
+      { error: 'Too many requests' },
+      { status: 429, headers: { 'Retry-After': String(Math.ceil((budget.resetAt - now) / 1000)) } },
+    );
+  }
+  budget.count++;
+  budget.active++;
 
   const startTime = Date.now();
 
@@ -137,5 +172,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(createResponse(false, null, errorMessage, responseTime), {
       status: statusCode,
     });
+  } finally {
+    budget.active--;
   }
 }

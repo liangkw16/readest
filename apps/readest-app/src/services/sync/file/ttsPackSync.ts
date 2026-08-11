@@ -14,7 +14,7 @@
 // (returning 0) and must never affect playback or the main sync pipeline.
 
 import { useSettingsStore } from '@/store/settingsStore';
-import { resolveCloudSyncGate } from '@/services/sync/cloudSyncProvider';
+import { getActiveFileSyncBackends } from '@/services/sync/cloudSyncProvider';
 import type { TTSPackSidecar } from '@/services/tts/providers/sqliteCacheStore';
 import { ancestorsOf, buildBookTTSDirPath, buildBookTTSFilePath } from './layout';
 import type { FileSyncProvider } from './provider';
@@ -136,17 +136,12 @@ export const pullTTSPacks = async (
   }
 };
 
-// The provider pack sync rides: the user's SELECTED third-party file-sync
-// backend, honoring the pause gate (#4959). Readest Cloud is deliberately
-// excluded — packs live on the user's own storage only.
+// Pack sync rides the highest-priority user-owned file-sync backend.
 export const getActiveTTSPackSyncProvider = async (): Promise<FileSyncProvider | null> => {
   try {
     const settings = useSettingsStore.getState().settings;
-    const gate = resolveCloudSyncGate(settings);
-    // Third-party backends only (Readest Cloud is excluded from packs) and
-    // never while the plan has them paused (#4959). Use the highest-priority
-    // enabled backend, matching the fixed webdav/gdrive/s3/onedrive order.
-    const backend = gate.paused ? undefined : gate.backends[0];
+    // Use the highest-priority enabled backend in the shared stable order.
+    const backend = getActiveFileSyncBackends(settings)[0];
     if (!backend) return null;
     return await createFileSyncProvider(backend, settings);
   } catch {

@@ -1,6 +1,5 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useEnv } from '@/context/EnvContext';
-import { useAuth } from '@/context/AuthContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useLibraryStore } from '@/store/libraryStore';
@@ -53,9 +52,6 @@ interface ServerStatePayload {
 const LocalSendManager: React.FC = () => {
   const _ = useTranslation();
   const { envConfig, appService } = useEnv();
-  const { user } = useAuth();
-  const userRef = useRef(user);
-  userRef.current = user;
 
   const pendingRequest = useLocalSendStore((state) => state.pendingRequest);
   const [sendFiles, setSendFiles] = useState<SendFileInput[] | null>(null);
@@ -168,7 +164,6 @@ const LocalSendManager: React.FC = () => {
           {
             appService,
             settings: useSettingsStore.getState().settings,
-            isLoggedIn: !!userRef.current,
           },
         );
         if (book) await useLibraryStore.getState().updateBooks(envConfig, [book]);

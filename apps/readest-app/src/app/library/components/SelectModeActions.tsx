@@ -6,7 +6,6 @@ import {
   MdOutlineCancel,
   MdInfoOutline,
   MdCheckCircleOutline,
-  MdOutlineCloudDownload,
   MdWifiTethering,
 } from 'react-icons/md';
 import { IoShareSocialOutline } from 'react-icons/io5';
@@ -19,20 +18,13 @@ interface SelectModeActionsProps {
   selectedBooks: string[];
   safeAreaBottom: number;
   // When false (Linux desktop, Windows desktop, web) the Send button is
-  // hidden entirely — those platforms can't surface a system share sheet
-  // so the affordance would be misleading. Note: this is *file send* (hands
-  // the book file to the OS share sheet), distinct from "Share Book" in
-  // the per-item context menu, which generates a remote share link.
+  // hidden entirely — those platforms can't surface a system share sheet,
+  // so the affordance would be misleading.
   sendEnabled?: boolean;
-  // False when nothing in the selection can be pulled from the cloud — every
-  // selected book is either already on this device or was never uploaded.
-  canDownload?: boolean;
   onOpen: () => void;
   onGroup: () => void;
   onDetails: () => void;
   onStatus: () => void;
-  // Queues every cloud-only book in the selection, groups included (#5244).
-  onDownload: () => void;
   // The macOS / iPad share popover is anchored to the selected book's
   // cover (located via its data-book-hash attribute), not to this
   // button — the user's visual focus is on the cover they just tapped.
@@ -55,12 +47,10 @@ const SelectModeActions: React.FC<SelectModeActionsProps> = ({
   selectedBooks,
   safeAreaBottom,
   sendEnabled = true,
-  canDownload = false,
   onOpen,
   onGroup,
   onDetails,
   onStatus,
-  onDownload,
   onSend,
   sendNearbyEnabled = false,
   onSendNearby,
@@ -149,19 +139,6 @@ const SelectModeActions: React.FC<SelectModeActionsProps> = ({
         >
           <MdInfoOutline />
           <div>{_('Details')}</div>
-        </button>
-        <button
-          onClick={onDownload}
-          className={clsx(
-            'flex flex-col items-center justify-center gap-1',
-            // Heads the second row on narrow viewports; everything after it
-            // (Send / Delete / Cancel) then flows behind it.
-            'max-[500px]:col-start-1',
-            !canDownload && 'btn-disabled opacity-50',
-          )}
-        >
-          <MdOutlineCloudDownload />
-          <div>{_('Download')}</div>
         </button>
         {sendEnabled && (
           <button

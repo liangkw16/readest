@@ -20,9 +20,6 @@ import { useEnv } from '@/context/EnvContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import { isWebAppPlatform } from '@/services/environment';
 import { useCustomOPDSStore } from '@/store/customOPDSStore';
-import { ensurePassphraseUnlocked } from '@/services/sync/passphraseGate';
-import { isCredentialsSyncEnabled } from '@/services/sync/syncCategories';
-import { isSyncError } from '@/libs/errors';
 import { OPDSCatalog } from '@/types/opds';
 import { isLanAddress } from '@/utils/network';
 import { eventDispatcher } from '@/utils/event';
@@ -112,11 +109,10 @@ export function CatalogManager({ inSubPage = false }: CatalogManagerProps = {}) 
   const _ = useTranslation();
   const router = useRouter();
   const { envConfig, appService } = useEnv();
-  // Hydrate the store from settings on mount; all CRUD goes through it
-  // so the replica-sync push fires automatically. The local `catalogs`
-  // mirror tracks the visible (non-deleted) entries; we keep the
-  // setState wrapper so `useEffect` consumers (subscriptions) re-fire
-  // when the list changes.
+  // Hydrate the store from local settings on mount. The local `catalogs`
+  // mirror tracks the visible (non-deleted) entries; we keep the setState
+  // wrapper so `useEffect` consumers (subscriptions) re-fire when the list
+  // changes.
   const allCatalogs = useCustomOPDSStore((s) => s.catalogs);
   const [catalogs, setCatalogs] = useState<OPDSCatalog[]>(() =>
     useCustomOPDSStore.getState().getAvailableCatalogs(),
@@ -178,8 +174,7 @@ export function CatalogManager({ inSubPage = false }: CatalogManagerProps = {}) 
     setCatalogs(allCatalogs.filter((c) => !c.deletedAt));
   }, [allCatalogs]);
 
-  // Persist via the store (settings + replica push), then update local
-  // mirror. Replica sync fan-out happens inside the store mutators.
+  // Persist via the local settings store, then update the local mirror.
   const persistMutation = () => {
     void useCustomOPDSStore.getState().saveCustomOPDSCatalogs(envConfig);
   };
@@ -238,32 +233,6 @@ export function CatalogManager({ inSubPage = false }: CatalogManagerProps = {}) 
     const customHeaders = hasCustomHeaders(parsedHeaders.headers)
       ? parsedHeaders.headers
       : undefined;
-
-    // If the user provided credentials, unlock (or set up) the sync
-    // passphrase BEFORE saving. The crypto middleware drops creds
-    // from the push when the session is locked, so this gate is what
-    // turns the credentials into actual cross-device sync. User
-    // cancel = save proceeds without sync (the catalog still works
-    // locally with the entered creds).
-    //
-    // Skip the prompt entirely when credentials sync is disabled — in
-    // that mode the creds stay device-local by design and never need
-    // the passphrase, so prompting would be both pointless and
-    // confusing (Settings → Sync → Credentials toggle).
-    const hasCredentials = !!(newCatalog.username || newCatalog.password);
-    if (hasCredentials && isCredentialsSyncEnabled()) {
-      try {
-        await ensurePassphraseUnlocked();
-      } catch (err) {
-        if (!(isSyncError(err) && err.code === 'NO_PASSPHRASE')) {
-          // Surface unexpected errors; cancel-by-user is silent.
-          setUrlError(err instanceof Error ? err.message : String(err));
-          setIsValidating(false);
-          return;
-        }
-        // User cancelled the prompt — save locally without encrypted sync.
-      }
-    }
 
     if (editingCatalogId) {
       useCustomOPDSStore.getState().updateCatalog(editingCatalogId, {

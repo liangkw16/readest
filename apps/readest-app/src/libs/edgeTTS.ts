@@ -4,7 +4,6 @@ import type TauriWebSocketConnection from '@tauri-apps/plugin-websocket';
 import { randomMd5 } from '@/utils/misc';
 import { LRUCache } from '@/utils/lru';
 import { genSSML } from '@/utils/ssml';
-import { fetchWithAuth } from '@/utils/fetch';
 import { getAPIBaseUrl, isTauriAppPlatform } from '@/services/environment';
 
 // Cloudflare Workers expose a global `WebSocketPair` that is not available in
@@ -317,8 +316,8 @@ export interface EdgeSpeechAudio {
   boundaries: TTSWordBoundary[];
 }
 
-// Response header used to carry word boundaries through the authenticated
-// HTTPS proxy route (`/api/tts/edge`), which streams only the audio body.
+// Response header used to carry word boundaries through the same-origin HTTPS
+// proxy route (`/api/tts/edge`), which streams only the audio body.
 export const WORD_BOUNDARIES_HEADER = 'X-TTS-Word-Boundaries';
 
 // HTTP header values must be ASCII, but boundary `text` can be any script
@@ -379,7 +378,7 @@ export class EdgeSpeechTTS {
   async #fetchEdgeSpeechHttp({ lang, text, voice, rate }: EdgeTTSPayload): Promise<Response> {
     const url = getAPIBaseUrl() + '/tts/edge';
 
-    const response = await fetchWithAuth(url, {
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

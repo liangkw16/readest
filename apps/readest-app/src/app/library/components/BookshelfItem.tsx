@@ -125,15 +125,10 @@ interface BookshelfItemProps {
   coverFit: LibraryCoverFitType;
   isSelectMode: boolean;
   itemSelected: boolean;
-  transferProgress: number | null;
   setLoading: React.Dispatch<React.SetStateAction<boolean>>;
   toggleSelection: (hash: string) => void;
   handleGroupBooks: () => void;
-  handleBookDownload: (
-    book: Book,
-    options?: { redownload?: boolean; queued?: boolean },
-  ) => Promise<boolean>;
-  handleBookUpload: (book: Book, syncBooks?: boolean) => Promise<boolean>;
+  handleBookDownload: (book: Book) => Promise<boolean>;
   handleBookDelete: (book: Book, syncBooks?: boolean) => Promise<boolean>;
   handleSetSelectMode: (selectMode: boolean) => void;
   handleShowDetailsBook: (book: Book) => void;
@@ -148,11 +143,9 @@ const BookshelfItem: React.FC<BookshelfItemProps> = ({
   coverFit,
   isSelectMode,
   itemSelected,
-  transferProgress,
   setLoading,
   toggleSelection,
   handleGroupBooks,
-  handleBookUpload,
   handleBookDownload,
   handleSetSelectMode,
   handleShowDetailsBook,
@@ -260,26 +253,6 @@ const BookshelfItem: React.FC<BookshelfItemProps> = ({
         text: _('Search on Goodreads'),
         action: async () => {
           openExternalUrl(getGoodreadsSearchUrl(getBookGoodreadsQuery(book)));
-        },
-      },
-      download: {
-        text: _('Download Book'),
-        action: async () => {
-          handleBookDownload(book, { queued: true });
-        },
-      },
-      upload: {
-        text: _('Upload Book'),
-        action: async () => {
-          handleBookUpload(book);
-        },
-      },
-      share: {
-        text: _('Share Book'),
-        action: async () => {
-          // Bookshelf.tsx hosts the dialog; we dispatch and let it route
-          // unauthenticated users into the login flow first.
-          eventDispatcher.dispatch('show-share-dialog', { book });
         },
       },
       sendNearby: {
@@ -497,9 +470,6 @@ const BookshelfItem: React.FC<BookshelfItemProps> = ({
               coverFit={coverFit}
               isSelectMode={isSelectMode}
               bookSelected={itemSelected}
-              transferProgress={transferProgress}
-              handleBookUpload={handleBookUpload}
-              handleBookDownload={handleBookDownload}
               showBookDetailsModal={showBookDetailsModal}
               showTimeRemaining={showTimeRemaining}
             />

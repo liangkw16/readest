@@ -137,9 +137,9 @@ const ExportMarkdownDialog: React.FC<ExportMarkdownDialogProps> = ({
   const [showSource, setShowSource] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
-  // Resolving a cover URL may publish the local cover to public storage, so it
-  // runs only when the export actually references one: the checkbox in simple
-  // mode, the coverImageUrl variable in template mode.
+  // Resolve an existing public cover URL only when the export references one:
+  // the checkbox in simple mode, or the coverImageUrl variable in template
+  // mode. Device-local covers are deliberately not uploaded.
   const wantsCoverImage = exportConfig.useCustomTemplate
     ? exportConfig.customTemplate.includes('coverImageUrl')
     : exportConfig.includeCoverImage;

@@ -7,14 +7,14 @@ import Providers from '@/components/Providers';
 
 import '../styles/globals.css';
 
-const url = 'https://web.readest.com/';
+const url = process.env['NEXT_PUBLIC_SITE_URL'] || 'http://localhost:3000/';
 const title = 'Readest — Where You Read, Digest and Get Insight';
 const description =
   'Discover Readest, the ultimate online ebook reader for immersive and organized reading. ' +
   'Enjoy seamless access to your digital library, powerful tools for highlighting, bookmarking, ' +
   'and note-taking, and support for multiple book views. ' +
   'Perfect for deep reading, analysis, and understanding. Explore now!';
-const previewImage = 'https://cdn.readest.com/images/open_graph_preview_read_now.png';
+const previewImage = '/icon.png';
 
 export const metadata: Metadata = {
   metadataBase: new URL(url),
@@ -29,7 +29,7 @@ export const metadata: Metadata = {
   authors: [
     {
       name: 'readest',
-      url: 'https://github.com/readest/readest',
+      url: 'https://github.com/liangkw16/readest',
     },
   ],
   icons: {
@@ -56,7 +56,6 @@ export const metadata: Metadata = {
   },
   other: {
     'apple-mobile-web-app-capable': 'yes',
-    'twitter:domain': 'web.readest.com',
     'twitter:url': url,
   },
 };
