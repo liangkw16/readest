@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { PiGear } from 'react-icons/pi';
 import { PiSun, PiMoon } from 'react-icons/pi';
 import { TbSunMoon } from 'react-icons/tb';
-import { MdCloudSync, MdSync, MdOutlineSensors } from 'react-icons/md';
+import { MdOutlineSensors } from 'react-icons/md';
 
 import { isTauriAppPlatform, isWebAppPlatform } from '@/services/environment';
 import { DOWNLOAD_READEST_URL } from '@/services/constants';
@@ -11,12 +11,6 @@ import { setBackupDialogVisible } from '@/app/library/components/BackupWindow';
 import { setCacheManagerDialogVisible } from '@/app/library/components/CacheManagerWindow';
 import { useEnv } from '@/context/EnvContext';
 import { useThemeStore } from '@/store/themeStore';
-import { useFileSyncStore } from '@/store/fileSyncStore';
-import {
-  cloudProvidersDisplayName,
-  settingsKeyForBackend,
-} from '@/services/sync/cloudSyncProvider';
-import { getReadyFileSyncBackends } from '@/services/sync/file/runLibrarySync';
 import { useLibraryStore } from '@/store/libraryStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -32,7 +26,6 @@ import {
 } from '@/services/biometric';
 import { selectDirectory } from '@/utils/bridge';
 import { nextThemeMode } from '@/utils/ambientLight';
-import dayjs from 'dayjs';
 import MenuItem from '@/components/MenuItem';
 import Menu from '@/components/Menu';
 import { type AppLockDialogMode, useAppLockStore } from '@/store/appLockStore';
@@ -46,7 +39,7 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({ onPullLibrary, setIsDropdow
   const _ = useTranslation();
   const { envConfig, appService } = useEnv();
   const { themeMode, setThemeMode } = useThemeStore();
-  const { settings, setSettingsDialogOpen, setRequestedPanel } = useSettingsStore();
+  const { settings, setSettingsDialogOpen } = useSettingsStore();
   const [isAlwaysOnTop, setIsAlwaysOnTop] = useState(settings.alwaysOnTop);
   const [isAlwaysShowStatusBar, setIsAlwaysShowStatusBar] = useState(settings.alwaysShowStatusBar);
   const [isOpenLastBooks, setIsOpenLastBooks] = useState(settings.openLastBooks);
@@ -87,8 +80,6 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({ onPullLibrary, setIsDropdow
     setIsDropdownOpen?.(false);
   };
   const { setLibrary } = useLibraryStore();
-  const fileSyncByKind = useFileSyncStore((s) => s.byKind);
-  const fileSyncLastError = useFileSyncStore((s) => s.lastErrorByKind);
   const showAboutReadest = () => {
     setAboutDialogVisible(true);
     setIsDropdownOpen?.(false);
@@ -96,12 +87,6 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({ onPullLibrary, setIsDropdow
 
   const downloadReadest = () => {
     window.open(DOWNLOAD_READEST_URL, '_blank');
-    setIsDropdownOpen?.(false);
-  };
-
-  const handleManageSync = () => {
-    setRequestedPanel('integrations');
-    setSettingsDialogOpen(true);
     setIsDropdownOpen?.(false);
   };
 
@@ -215,11 +200,6 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({ onPullLibrary, setIsDropdow
     setSavedBookCoverForLockScreen(newValue);
   };
 
-  const handleSyncLibrary = () => {
-    onPullLibrary(true, true);
-    setIsDropdownOpen?.(false);
-  };
-
   const themeModeLabel =
     themeMode === 'dark'
       ? _('Dark Mode')
@@ -233,27 +213,6 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({ onPullLibrary, setIsDropdow
   const coverDir = savedBookCoverPath ? savedBookCoverPath.split('/').pop() : 'Images';
   const savedBookCoverDescription = `💾 ${coverDir}/last-book-cover.png`;
 
-  // Only providers that can actually sync right now. A web Google Drive whose
-  // token expired is still enabled but silently skipped, so it must not be counted
-  // as active or reported as synced (it would otherwise inflate the count and lend
-  // its stale lastSyncedAt to "Synced X ago").
-  const backends = getReadyFileSyncBackends(settings);
-  const providerNames = cloudProvidersDisplayName(backends);
-
-  const providerSyncing = backends.some((kind) => !!fileSyncByKind[kind]?.isSyncing);
-  const providerLastError = backends.map((kind) => fileSyncLastError[kind]).find(Boolean);
-  const backendLastSyncedAt = Math.max(
-    0,
-    ...backends.map((kind) => settings[settingsKeyForBackend(kind)]?.lastSyncedAt || 0),
-  );
-  const lastSyncTime = backendLastSyncedAt;
-
-  const syncRowLabel = providerLastError
-    ? _('Sync failed')
-    : lastSyncTime
-      ? _('Synced {{time}}', { time: dayjs(lastSyncTime).fromNow() })
-      : _('Never synced');
-
   return (
     <Menu
       className={clsx(
@@ -262,20 +221,6 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({ onPullLibrary, setIsDropdow
       )}
       onCancel={() => setIsDropdownOpen?.(false)}
     >
-      <MenuItem
-        label={backends.length === 0 ? _('Configure Sync Storage') : syncRowLabel}
-        Icon={backends.length === 0 ? MdCloudSync : MdSync}
-        iconClassName={providerSyncing ? 'animate-reverse-spin' : ''}
-        onClick={backends.length === 0 ? handleManageSync : handleSyncLibrary}
-        description={
-          backends.length === 0
-            ? _('Use your own WebDAV, S3, Google Drive, OneDrive, or iCloud storage')
-            : backends.length > 1
-              ? _('Library sync via {{count}} providers', { count: backends.length })
-              : _('Library sync via {{provider}}', { provider: providerNames })
-        }
-      />
-
       {isTauriAppPlatform() && (
         <MenuItem
           label={_('Auto Import on File Open')}
@@ -330,7 +275,6 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({ onPullLibrary, setIsDropdow
           {appService?.canCustomizeRootDir && (
             <MenuItem label={_('Change Data Location')} onClick={handleSetRootDir} />
           )}
-          <MenuItem label={_('Sync Storage')} onClick={handleManageSync} />
           <MenuItem
             label={_('Refresh Metadata')}
             description={refreshMetadataProgress}

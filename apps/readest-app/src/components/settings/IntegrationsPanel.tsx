@@ -699,12 +699,11 @@ interface CloudProviderRowProps {
 }
 
 /**
- * A cloud-sync provider row. Two controls: a trailing checkbox that turns
- * this provider's library sync on or off (several may be on at once) —
- * enabled only when it's already configured — and the row body / chevron
- * that opens its config sub-page (connect, sync options, disconnect).
+ * A cloud-sync provider row. Configured providers get a trailing checkbox to
+ * turn library sync on or off (several may be on at once). Unconfigured rows
+ * omit that unavailable control and use the row body / chevron to open setup.
  */
-const CloudProviderRow: React.FC<CloudProviderRowProps> = ({
+export const CloudProviderRow: React.FC<CloudProviderRowProps> = ({
   icon: Icon,
   title,
   status,
@@ -739,15 +738,16 @@ const CloudProviderRow: React.FC<CloudProviderRowProps> = ({
           <span className='text-base-content/65 truncate text-[0.85em]'>{status}</span>
         </div>
       </button>
-      <input
-        type='checkbox'
-        className='checkbox checkbox-sm flex-shrink-0'
-        checked={checked}
-        disabled={!canToggle}
-        onChange={(e) => onToggle(e.target.checked)}
-        aria-label={toggleLabel}
-        title={toggleLabel}
-      />
+      {canToggle && (
+        <input
+          type='checkbox'
+          className='checkbox checkbox-sm flex-shrink-0'
+          checked={checked}
+          onChange={(e) => onToggle(e.target.checked)}
+          aria-label={toggleLabel}
+          title={toggleLabel}
+        />
+      )}
       <button
         type='button'
         onClick={onOpen}

@@ -8,8 +8,8 @@ import { useSettingsStore } from '@/store/settingsStore';
 
 /**
  * The manual "Sync now" must keep the provider health surfaces honest: the
- * Cloud Sync chooser row and the SettingsMenu sync row read
- * `lastErrorByKind`, so a completed manual run has to clear a stale error
+ * Cloud Sync chooser rows read `lastErrorByKind`, so a completed manual run
+ * has to clear a stale error
  * (server restarted, sync works again → "Sync failed" must not stick) and a
  * failed one has to record it.
  */
